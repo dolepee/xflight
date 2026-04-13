@@ -10,11 +10,11 @@ XFlight verifies autonomous agent claims on X Layer. Paste a Moltbook BuildX pos
 
 ### 1. X Layer Arena: XFlight BlackBox (Web App)
 
-Full web app at `/` — targets X Layer Arena.
+Full web app with verification, preflight/postflight checks, proof cards, and on-chain attestation. Targets X Layer Arena.
 
 ### 2. Skills Arena: xflight-skill
 
-Reusable skill package — targets Skills Arena.
+Reusable OpenClaw/OnchainOS-compatible skill package that exposes the same verification engine as agent-callable commands. Targets Skills Arena.
 
 ---
 
@@ -22,7 +22,7 @@ Reusable skill package — targets Skills Arena.
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/YOUR_REPO/xflight.git
+git clone https://github.com/dolepee/xflight.git
 cd xflight
 npm install
 
@@ -48,27 +48,32 @@ npm run dev
 xflight/
 ├── app/
 │   ├── api/
-│   │   ├── verify/route.ts      Core verification endpoint
-│   │   ├── proof/[id]/route.ts  Fetch proof by ID
-│   │   └── posts/route.ts      Fetch BuildX posts
-│   ├── verify/page.tsx          Verify page
-│   ├── preflight/page.tsx       Preflight + postflight
-│   ├── proof/[id]/page.tsx      Shareable proof card
-│   └── skill/page.tsx           Skill documentation
+│   │   ├── verify/route.ts       Moltbook post verification + scoring
+│   │   ├── attest/route.ts       On-chain report attestation
+│   │   ├── wallet/route.ts       Real wallet verification via RPC
+│   │   ├── tx/route.ts           Real transaction verification via RPC
+│   │   ├── proof/[id]/route.ts   Fetch proof report by ID
+│   │   └── posts/route.ts        Fetch BuildX post feed
+│   ├── verify/page.tsx           Claim verification page
+│   ├── preflight/page.tsx        Preflight wallet check + postflight tx verify
+│   ├── proof/[id]/page.tsx       Shareable proof card
+│   └── skill/page.tsx            Skill documentation
 ├── lib/
-│   ├── chains.ts                X Layer chain config
-│   ├── moltbook.ts              Moltbook API client + scrape
-│   ├── claims.ts                AI + regex claim extraction
-│   ├── flightScorer.ts          Deterministic 0-100 scorer
-│   ├── reportStore.ts           In-memory report store
-│   └── attestation.ts           X Layer on-chain writer
+│   ├── chains.ts                 X Layer chain config (ID 196)
+│   ├── xlayerVerifier.ts         Real RPC verification (wallet, tx, contract)
+│   ├── moltbook.ts               Moltbook API client + scrape
+│   ├── claims.ts                 AI + regex claim extraction
+│   ├── flightScorer.ts           Deterministic 0-100 scorer
+│   ├── reportStore.ts            File-based JSON report persistence
+│   └── attestation.ts            X Layer on-chain writer (commitPlan, recordExecution, attestReport)
 ├── contracts/
-│   └── XFlightRecorder.sol      Minimal attestation contract
+│   └── XFlightRecorder.sol       On-chain attestation contract
 ├── scripts/
-│   └── deploy.ts                Deploy script
+│   └── deploy.ts                 Deploy script (auto-generates wallet if needed)
 └── xflight-skill/
-    ├── SKILL.md                 OpenClaw skill manifest
-    └── src/index.ts             Skill API wrapper
+    ├── SKILL.md                  OpenClaw skill manifest
+    ├── README.md                 Skill documentation
+    └── src/index.ts              Skill API wrapper
 ```
 
 ---
@@ -77,26 +82,44 @@ xflight/
 
 | Item | Value |
 |------|-------|
+| Chain | X Layer Mainnet |
 | Chain ID | 196 |
 | RPC | https://rpc.xlayer.tech |
 | Explorer | https://www.oklink.com/xlayer |
 | Contract | `XFlightRecorder.sol` |
-| Function | `recordReport(bytes32,bytes32,string,uint8)` |
-| Event | `ReportRecorded(bytes32,bytes32,string,uint8,address,uint256)` |
 
-Contract address will be filled after running `npm run deploy`.
+### Contract Functions
+
+| Function | Purpose |
+|----------|---------|
+| `commitPlan(bytes32 actionId, bytes32 planHash, string metadataURI)` | Commit a preflight plan hash |
+| `recordExecution(bytes32 actionId, bytes32 txHash, bytes32 observedHash)` | Record execution result |
+| `attestReport(bytes32 reportId, bytes32 reportHash, uint8 verdict, uint16 flightScore, string reportURI)` | Attest a verification report |
+
+Contract address is set after running `npm run deploy`.
 
 ---
 
 ## Demo Flow
 
+### Demo A: Moltbook BuildX Claim Verifier
+
 1. Open app at `http://localhost:3000`
 2. Go to **Verify** tab
 3. Paste a Moltbook BuildX post URL
 4. XFlight extracts claims: agent name, wallet, tx count, PnL, contracts, links
-5. XFlight generates Flight Score (0-100) with full breakdown
-6. XFlight writes report hash to X Layer via `XFlightRecorder`
-7. Click the **proof card** link to see the shareable report
+5. XFlight verifies claims against real X Layer RPC data
+6. XFlight generates Flight Score (0-100) with full breakdown
+7. XFlight writes report hash to X Layer via `XFlightRecorder.attestReport()`
+8. Click the **proof card** link to see the shareable report
+
+### Demo B: Preflight/Postflight Verification
+
+1. Go to **Preflight** tab
+2. Enter an agent action and wallet address
+3. XFlight checks wallet balance, activity, and contract status on X Layer (live RPC)
+4. After execution, paste the tx hash for postflight verification
+5. XFlight verifies the tx exists, sender matches, and status is confirmed
 
 ---
 
@@ -113,81 +136,68 @@ Transparent 0-100 score with explainable breakdown:
 | 0-24 | Unverified |
 
 **Scoring (100 pts total):**
-- X Layer Proof (30 pts): wallet, txs, contracts on-chain
-- Claim Consistency (20 pts): stated txs, chain, action match
+- X Layer Proof (30 pts): wallet, txs, contracts verified on-chain
+- Claim Consistency (20 pts): stated txs, chain, action match public data
 - OnchainOS/Uniswap Evidence (15 pts): skill usage visible
 - Execution Continuity (15 pts): multiple timestamped actions
 - Proof Completeness (10 pts): GitHub, demo, links present
-- Risk Hygiene (10 pts): no obvious fake PnL or suspicious signals
+- Risk Hygiene (10 pts): no fake PnL, contradictions, or suspicious signals
 
 ---
 
 ## xflight-skill
 
-```bash
-npm install xflight-skill
-```
-
 ```typescript
 import { xflight } from 'xflight-skill';
 
+xflight.configure({
+  apiUrl: "https://xflight.vercel.app", // or localhost:3000
+  rpcUrl: "https://rpc.xlayer.tech",
+});
+
 // Verify a Moltbook post
-const result = await xflight.verifyMoltbookPost({
+const result = await xflight.verify_moltbook_post({
   url: "https://www.moltbook.com/posts/abc123"
 });
 console.log(result.score, result.verdict, result.proofUrl);
 
-// Verify a tx hash
-const tx = await xflight.verifyTx({
-  txHash: "0x..."
-});
+// Verify a wallet (live RPC)
+const wallet = await xflight.verify_wallet({ address: "0x..." });
+console.log(wallet.verdict, wallet.txCount);
+
+// Verify a transaction (live RPC)
+const tx = await xflight.verify_tx({ txHash: "0x..." });
 console.log(tx.verdict);
 
-// Verify a wallet
-const wallet = await xflight.verifyWallet({
-  address: "0x..."
-});
-
 // Generate proof card
-const card = await xflight.generateProofCard({
-  reportId: result.reportId
-});
+const card = await xflight.generate_proof_card({ reportId: result.reportId });
 
 // Attest on X Layer
-await xflight.attestReport({ reportId: result.reportId });
+await xflight.attest_report({ reportId: result.reportId });
 ```
+
+### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `xflight.verify_moltbook_post({ url })` | Extract claims, verify, and score a BuildX post |
+| `xflight.verify_tx({ txHash })` | Verify a transaction on X Layer |
+| `xflight.verify_wallet({ address })` | Check wallet existence, balance, and activity |
+| `xflight.generate_proof_card({ reportId })` | Generate a shareable proof card |
+| `xflight.attest_report({ reportId })` | Write report hash to XFlightRecorder on X Layer |
 
 ---
 
-## Contract
+## On-Chain Verification
 
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+All verification is deterministic and uses real X Layer RPC calls:
 
-contract XFlightRecorder {
-    uint256 public reportCount;
+- **Wallet check**: `eth_getBalance`, `eth_getTransactionCount`, `eth_getCode`
+- **Transaction check**: `eth_getTransactionReceipt` (status, sender, block)
+- **Contract check**: `eth_getCode` (bytecode presence)
+- **Report attestation**: Direct write to XFlightRecorder contract
 
-    event ReportRecorded(
-        bytes32 indexed reportId,
-        bytes32 indexed reportHash,
-        string projectUrl,
-        uint8 score,
-        address indexed verifier,
-        uint256 timestamp
-    );
-
-    function recordReport(
-        bytes32 reportId,
-        bytes32 reportHash,
-        string calldata projectUrl,
-        uint8 score
-    ) external {
-        reportCount++;
-        emit ReportRecorded(reportId, reportHash, projectUrl, score, msg.sender, block.timestamp);
-    }
-}
-```
+AI is only used for claim extraction from text. All scoring and verification is deterministic.
 
 ---
 
@@ -208,7 +218,7 @@ XFlight is the verification layer for the agent arena. While competitors build t
 
 ## Team
 
-XFlight BlackBox — Built for the X Layer Hackathon
+XFlight BlackBox | Built for the X Layer Hackathon
 
 ---
 

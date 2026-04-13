@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Contract not deployed. Run: npm run deploy" }, { status: 503 });
     }
 
-    const result = await attestReport(reportId, report.reportHash, report.projectUrl, report.score, contractAddress, privateKey);
+    const reportURI = `${process.env.NEXT_PUBLIC_BASE_URL || "https://xflight.vercel.app"}/proof/${reportId}`;
+    const result = await attestReport(reportId, report.reportHash, report.score, reportURI, contractAddress, privateKey);
 
     if (result.success) {
       report.txHash = result.txHash;

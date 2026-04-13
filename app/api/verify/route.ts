@@ -157,7 +157,8 @@ export async function POST(req: NextRequest) {
     let attestation: Record<string, unknown> = {};
 
     if (contractAddress && privateKey && contractAddress.length === 42) {
-      const result = await attestReport(reportId, reportHash, url, scoreResult.score, contractAddress, privateKey);
+      const reportURI = `${process.env.NEXT_PUBLIC_BASE_URL || "https://xflight.vercel.app"}/proof/${reportId}`;
+      const result = await attestReport(reportId, reportHash, scoreResult.score, reportURI, contractAddress, privateKey);
       if (result.success) {
         fullReport.txHash = result.txHash;
         fullReport.blockNumber = result.blockNumber;

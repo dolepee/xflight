@@ -7,6 +7,8 @@ export const XLAYER_TOKENS: Record<string, { address: `0x${string}`; decimals: n
   OKB:   { address: "0xe538905cf8410324e03A5A23C1c177a474D59b2b", decimals: 18, symbol: "OKB" },  // native wraps to WOKB
   USDC:  { address: "0x74b7F16337b8972027F6196A17a631aC6dE26d22", decimals: 6,  symbol: "USDC" },
   USDT:  { address: "0x1E4a5963aBFD975d8c9021ce480b42188849D41d", decimals: 6,  symbol: "USDT" },
+  WETH:  { address: "0x5A77f1443D16ee5761d310e38b62f77f726bC71c", decimals: 18, symbol: "WETH" },
+  ETH:   { address: "0x5A77f1443D16ee5761d310e38b62f77f726bC71c", decimals: 18, symbol: "ETH" },  // alias for WETH
 };
 
 // Uniswap V3 QuoterV2 — deterministic CREATE2 address (same on all chains)
@@ -193,6 +195,8 @@ export async function getQuoteWithFallback(
     WOKB: 48.5,
     USDC: 1.0,
     USDT: 1.0,
+    WETH: 3200,
+    ETH: 3200,
   };
 
   const fromPrice = approxPrices[fromSymbol.toUpperCase()] || 1;

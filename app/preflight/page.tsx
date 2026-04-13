@@ -11,6 +11,7 @@ import {
   XCircle,
   Loader2,
   ArrowDownUp,
+  Zap,
 } from "lucide-react";
 
 interface WalletCheck {
@@ -23,16 +24,24 @@ interface WalletCheck {
   verdict: string;
 }
 
+interface QuoteData {
+  fromToken: string;
+  toToken: string;
+  amountIn: string;
+  amountOut: string;
+  amountOutFormatted: string;
+  feeTier: number;
+  gasEstimate: string;
+  route: string;
+  live: boolean;
+  slippage: string;
+  dex: string;
+}
+
 interface PreflightResult {
   action: string;
   walletCheck: WalletCheck;
-  fromToken: string;
-  toToken: string;
-  amount: string;
-  expectedOutput: string;
-  route: string;
-  slippage: string;
-  gasEstimate: string;
+  quote: QuoteData | null;
   planHash: string;
   riskFlags: string[];
 }
@@ -65,13 +74,27 @@ export default function PreflightPage() {
     setPostResult(null);
 
     try {
-      const walletRes = await fetch("/api/wallet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: wallet.trim() }),
-      });
+      // Run wallet check and DEX quote in parallel
+      const [walletRes, quoteRes] = await Promise.all([
+        fetch("/api/wallet", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: wallet.trim() }),
+        }),
+        fetch("/api/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: action.trim() }),
+        }),
+      ]);
+
       const walletData = await walletRes.json();
       if (!walletRes.ok) throw new Error(walletData.error || "Wallet check failed");
+
+      let quoteData: QuoteData | null = null;
+      if (quoteRes.ok) {
+        quoteData = await quoteRes.json();
+      }
 
       const planInput = `${action}|${wallet}|${Date.now()}`;
       const planHash = keccak256(toBytes(planInput));
@@ -80,17 +103,12 @@ export default function PreflightPage() {
       if (!walletData.hasActivity) riskFlags.push("Wallet has no transaction history");
       if (walletData.balance === "0" || walletData.balance === "0.0") riskFlags.push("Wallet has zero OKB balance");
       if (walletData.isContract) riskFlags.push("Address is a contract, not an EOA");
+      if (quoteData && !quoteData.live) riskFlags.push("DEX quote is estimated (pool not found on Uniswap V3)");
 
       setResult({
         action,
         walletCheck: walletData,
-        fromToken: "OKB",
-        toToken: "USDC",
-        amount: "0.1",
-        expectedOutput: "~$4.85 (simulated quote)",
-        route: "OKB > WOKB > USDC (Uniswap V3 path, simulated)",
-        slippage: "0.5% default",
-        gasEstimate: "~0.002 OKB (estimated)",
+        quote: quoteData,
         planHash,
         riskFlags,
       });
@@ -156,8 +174,8 @@ export default function PreflightPage() {
       <div className="mb-10">
         <h1 className="text-2xl font-bold tracking-tight">Preflight Check</h1>
         <p className="text-[13px] text-[#a1a1b5] mt-2 leading-relaxed">
-          Check agent wallet status on X Layer before execution. Wallet
-          verification is live. Route quotes are simulated for demo.
+          Check agent wallet status and get real DEX quotes on X Layer before execution.
+          Wallet verification and Uniswap V3 quotes are live on chain.
         </p>
       </div>
 
@@ -225,8 +243,9 @@ export default function PreflightPage() {
             <div className="flex items-center gap-3 mb-4">
               <Wallet size={16} className="text-[#a1a1b5]" />
               <span className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase">
-                Wallet Verification — Live
+                Wallet Verification
               </span>
+              <span className="badge badge-accent text-[9px] ml-1">LIVE</span>
               <span
                 className="badge ml-auto"
                 style={{
@@ -275,34 +294,64 @@ export default function PreflightPage() {
             )}
           </div>
 
-          {/* Route plan */}
-          <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6">
+          {/* DEX Quote */}
+          <div
+            className="bg-[#0d1117] border rounded-md p-6"
+            style={{
+              borderColor: result.quote?.live
+                ? "rgba(0,212,170,0.3)"
+                : "rgba(30,33,48,1)",
+            }}
+          >
             <div className="flex items-center gap-3 mb-4">
               <ArrowDownUp size={16} className="text-[#a1a1b5]" />
               <span className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase">
-                Route Plan — Simulated
+                DEX Quote
               </span>
+              {result.quote?.live ? (
+                <span className="badge badge-accent text-[9px] flex items-center gap-1">
+                  <Zap size={8} />
+                  LIVE
+                </span>
+              ) : (
+                <span className="badge badge-neutral text-[9px]">ESTIMATED</span>
+              )}
+              {result.quote && (
+                <span className="text-[10px] font-mono text-[#52526b] ml-auto">
+                  {result.quote.dex} on X Layer
+                </span>
+              )}
             </div>
-            <div className="grid md:grid-cols-2 gap-2">
-              {[
-                { label: "Action", value: result.action },
-                { label: "Route", value: result.route },
-                { label: "Expected Output", value: result.expectedOutput },
-                { label: "Slippage", value: result.slippage },
-                { label: "Gas Estimate", value: result.gasEstimate },
-                { label: "Plan Hash", value: result.planHash, mono: true },
-              ].map((row) => (
-                <div
-                  key={row.label}
-                  className="flex flex-col gap-1 p-3 rounded bg-[#06080d] border border-[#151a25]"
-                >
-                  <span className="text-[11px] text-[#52526b] uppercase tracking-wider">{row.label}</span>
-                  <span className={`text-[12px] text-white ${row.mono ? "font-mono break-all" : ""}`}>
-                    {row.value}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {result.quote ? (
+              <div className="grid md:grid-cols-2 gap-2">
+                {[
+                  { label: "Action", value: result.action },
+                  { label: "Route", value: result.quote.route },
+                  { label: "Input", value: `${result.quote.amountIn} ${result.quote.fromToken}` },
+                  { label: "Expected Output", value: `${result.quote.amountOutFormatted} ${result.quote.toToken}` },
+                  { label: "Slippage", value: result.quote.slippage },
+                  { label: "Fee Tier", value: `${result.quote.feeTier / 10000}%` },
+                  { label: "Gas Estimate", value: result.quote.gasEstimate },
+                  { label: "Plan Hash", value: result.planHash, mono: true },
+                ].map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex flex-col gap-1 p-3 rounded bg-[#06080d] border border-[#151a25]"
+                  >
+                    <span className="text-[11px] text-[#52526b] uppercase tracking-wider">{row.label}</span>
+                    <span className={`text-[12px] text-white ${row.mono ? "font-mono break-all" : ""}`}>
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <p className="text-[12px] text-[#52526b]">
+                  Could not parse a swap from your action text. Try: &quot;Swap 0.1 OKB to USDC&quot;
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Postflight */}
@@ -355,7 +404,7 @@ export default function PreflightPage() {
                   {postResult.verdict}
                 </span>
                 <span className="text-[10px] font-mono text-[#52526b] tracking-widest uppercase">
-                  Live on-chain check
+                  Live on chain check
                 </span>
               </div>
               <p className="text-[13px] text-[#a1a1b5] mb-3">{postResult.explanation}</p>

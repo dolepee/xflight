@@ -123,11 +123,17 @@ async function main() {
     "utf8"
   );
 
-  let solc: Awaited<typeof import("solc")>;
+  let solcModule: { default?: { compile: (input: string) => string }; compile?: (input: string) => string };
   try {
-    solc = await import("solc") as typeof solc;
+    solcModule = await import("solc");
   } catch {
     console.error("solc not found. Run: npm install solc");
+    return;
+  }
+
+  const solcCompile = (solcModule.default?.compile ?? solcModule.compile) as (input: string) => string;
+  if (!solcCompile) {
+    console.error("solc module has no compile function");
     return;
   }
 
@@ -137,7 +143,7 @@ async function main() {
     settings: { outputSelection: { "*": { "*": ["abi", "evm.bytecode"] } } },
   };
 
-  const output = JSON.parse(solc.compile(JSON.stringify(input)));
+  const output = JSON.parse(solcCompile(JSON.stringify(input)));
 
   if (output.errors) {
     const errors = output.errors.filter((e: { severity: string }) => e.severity === "error");

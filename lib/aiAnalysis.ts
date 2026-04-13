@@ -3,12 +3,11 @@ import { VerificationResult } from "./flightScorer";
 import { ExtractedClaims } from "./claims";
 
 const ai = new OpenAI({
-  baseURL: "https://llm.bankr.bot/v1",
-  apiKey: process.env.BANKR_LLM_KEY || "",
-  defaultHeaders: { "X-API-Key": process.env.BANKR_LLM_KEY || "" },
+  baseURL: "https://api.dgrid.ai/v1",
+  apiKey: process.env.DGRID_API_KEY || "",
 });
 
-const MODEL = "deepseek-v3.2";
+const MODEL = "openai/gpt-4o";
 
 interface AnalysisInput {
   claims: ExtractedClaims;
@@ -33,7 +32,7 @@ Rules:
 Output ONLY the analysis text, no formatting or headers.`;
 
 export async function generateAIAnalysis(input: AnalysisInput): Promise<string> {
-  if (!process.env.BANKR_LLM_KEY) return "";
+  if (!process.env.DGRID_API_KEY) return "";
 
   try {
     const context = buildContext(input);

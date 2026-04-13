@@ -86,7 +86,9 @@ xflight/
 | Chain ID | 196 |
 | RPC | https://rpc.xlayer.tech |
 | Explorer | https://www.oklink.com/xlayer |
-| Contract | `XFlightRecorder.sol` |
+| Contract | [`0xb5d3A62aDfB3fa33FE665558F95B987D0502d4c1`](https://www.oklink.com/xlayer/address/0xb5d3A62aDfB3fa33FE665558F95B987D0502d4c1) |
+| Deploy TX | [`0x1e3b6bde...`](https://www.oklink.com/xlayer/tx/0x1e3b6bde038a68ea698e5707a89d685f2b7b785ca4583c9e5cf23d464c789dd4) |
+| Live App | [xflight.vercel.app](https://xflight.vercel.app) |
 
 ### Contract Functions
 

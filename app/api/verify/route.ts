@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPostFromUrl } from "@/lib/moltbook";
-import { extractClaims } from "@/lib/claims";
+import { extractClaims, type ExtractedClaims } from "@/lib/claims";
 import { calculateFlightScore, VerificationResult } from "@/lib/flightScorer";
 import { generateReportId, generateReportHash, saveReport, XFlightReport } from "@/lib/reportStore";
 import { attestReport } from "@/lib/attestation";
@@ -22,35 +22,82 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
-    // Fetch post content
-    const post = await fetchPostFromUrl(url);
-    if (!post) {
-      return NextResponse.json({ error: "Could not fetch post" }, { status: 404 });
+    const input = url.trim();
+
+    // Detect input type: wallet address, tx hash, or Moltbook URL/text
+    const isWallet = WALLET_RE.test(input);
+    const isTxHash = TX_RE.test(input);
+
+    let post;
+    let claims;
+
+    if (isWallet) {
+      // Direct wallet verification: synthesize a post from the address
+      post = {
+        id: `wallet-${input.slice(0, 10)}`,
+        url: `https://www.oklink.com/xlayer/address/${input}`,
+        author: "Direct Wallet Check",
+        title: "Wallet Verification",
+        content: `Wallet address: ${input}\nDirect wallet verification on X Layer.`,
+        timestamp: new Date().toISOString(),
+        likes: 0,
+        comments: 0,
+        type: "buildx" as const,
+      };
+      claims = { rawText: `Wallet: ${input}`, walletAddress: input } as ExtractedClaims & Record<string, unknown>;
+    } else if (isTxHash) {
+      // Direct tx verification: synthesize a post from the hash
+      post = {
+        id: `tx-${input.slice(0, 10)}`,
+        url: `https://www.oklink.com/xlayer/tx/${input}`,
+        author: "Direct TX Check",
+        title: "Transaction Verification",
+        content: `Transaction hash: ${input}\nDirect transaction verification on X Layer.`,
+        timestamp: new Date().toISOString(),
+        likes: 0,
+        comments: 0,
+        type: "buildx" as const,
+      };
+      claims = { rawText: `TX: ${input}`, transactionHash: input } as ExtractedClaims & Record<string, unknown>;
+    } else {
+      // Moltbook URL or freeform text
+      post = await fetchPostFromUrl(input);
+      if (!post) {
+        return NextResponse.json({ error: "Could not fetch post" }, { status: 404 });
+      }
+      claims = await extractClaims(post.content, useAI ?? false);
     }
 
-    // Extract claims from post text
-    const claims = await extractClaims(post.content, useAI ?? false);
+    if (!claims) {
+      claims = await extractClaims(post.content, useAI ?? false);
+    }
+
+    // Cast common fields for type safety
+    const walletAddr = String(claims.walletAddress || "");
+    const txCount = Number(claims.transactionCount || 0) || null;
+    const contractAddr = String(claims.deployedContract || "");
+    const txHash = String((claims as Record<string, unknown>).transactionHash || "");
 
     // ── Real on chain verification ──
     const verifications: VerificationResult[] = [];
 
     // Verify wallet
-    if (claims.walletAddress && WALLET_RE.test(claims.walletAddress)) {
+    if (walletAddr && WALLET_RE.test(walletAddr)) {
       try {
-        const walletResult = await verifyWalletOnChain(claims.walletAddress);
+        const walletResult = await verifyWalletOnChain(walletAddr);
         if (walletResult.hasActivity) {
           verifications.push({
             claim: "Wallet on X Layer",
             status: "verified",
             detail: `Wallet exists with ${walletResult.txCount} transactions and ${walletResult.balanceFormatted} OKB balance`,
-            source: `${XLAYER_EXPLORER}/address/${claims.walletAddress}`,
+            source: `${XLAYER_EXPLORER}/address/${walletAddr}`,
           });
         } else if (walletResult.exists) {
           verifications.push({
             claim: "Wallet on X Layer",
             status: "partial",
             detail: `Wallet exists on X Layer but has no transaction history (balance: ${walletResult.balanceFormatted} OKB)`,
-            source: `${XLAYER_EXPLORER}/address/${claims.walletAddress}`,
+            source: `${XLAYER_EXPLORER}/address/${walletAddr}`,
           });
         } else {
           verifications.push({
@@ -69,33 +116,33 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify transaction count against wallet nonce
-    if (claims.walletAddress && WALLET_RE.test(claims.walletAddress) && claims.transactionCount) {
+    if (walletAddr && WALLET_RE.test(walletAddr) && txCount) {
       try {
-        const realTxCount = await getWalletTxSample(claims.walletAddress);
+        const realTxCount = await getWalletTxSample(walletAddr);
         if (realTxCount > 0) {
-          const ratio = claims.transactionCount / realTxCount;
+          const ratio = txCount / realTxCount;
           if (ratio <= 2) {
             verifications.push({
-              claim: `Transaction count (${claims.transactionCount} claimed)`,
+              claim: `Transaction count (${txCount} claimed)`,
               status: "verified",
-              detail: `Wallet nonce is ${realTxCount}, consistent with claimed ${claims.transactionCount} transactions`,
+              detail: `Wallet nonce is ${realTxCount}, consistent with claimed ${txCount} transactions`,
             });
           } else if (ratio <= 5) {
             verifications.push({
-              claim: `Transaction count (${claims.transactionCount} claimed)`,
+              claim: `Transaction count (${txCount} claimed)`,
               status: "partial",
-              detail: `Wallet nonce is ${realTxCount}, claimed ${claims.transactionCount} is higher but within range (may include internal txs)`,
+              detail: `Wallet nonce is ${realTxCount}, claimed ${txCount} is higher but within range (may include internal txs)`,
             });
           } else {
             verifications.push({
-              claim: `Transaction count (${claims.transactionCount} claimed)`,
+              claim: `Transaction count (${txCount} claimed)`,
               status: "contradicted",
-              detail: `Wallet nonce is ${realTxCount} but post claims ${claims.transactionCount} transactions`,
+              detail: `Wallet nonce is ${realTxCount} but post claims ${txCount} transactions`,
             });
           }
         } else {
           verifications.push({
-            claim: `Transaction count (${claims.transactionCount} claimed)`,
+            claim: `Transaction count (${txCount} claimed)`,
             status: "unverified",
             detail: "Wallet has no outgoing transactions on X Layer",
           });
@@ -106,28 +153,76 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify deployed contract
-    if (claims.deployedContract && WALLET_RE.test(claims.deployedContract)) {
+    if (contractAddr && WALLET_RE.test(contractAddr)) {
       try {
-        const contractResult = await verifyContractOnChain(claims.deployedContract);
+        const contractResult = await verifyContractOnChain(contractAddr);
         if (contractResult.hasCode) {
           verifications.push({
-            claim: `Contract deployment (${claims.deployedContract.slice(0, 10)}...)`,
+            claim: `Contract deployment (${contractAddr.slice(0, 10)}...)`,
             status: "verified",
             detail: "Contract bytecode confirmed on X Layer",
-            source: `${XLAYER_EXPLORER}/address/${claims.deployedContract}`,
+            source: `${XLAYER_EXPLORER}/address/${contractAddr}`,
           });
         } else {
           verifications.push({
-            claim: `Contract deployment (${claims.deployedContract.slice(0, 10)}...)`,
+            claim: `Contract deployment (${contractAddr.slice(0, 10)}...)`,
             status: "unverified",
             detail: "No contract code found at this address on X Layer",
           });
         }
       } catch {
         verifications.push({
-          claim: `Contract deployment (${claims.deployedContract.slice(0, 10)}...)`,
+          claim: `Contract deployment (${contractAddr.slice(0, 10)}...)`,
           status: "unverified",
           detail: "Could not verify contract, RPC call failed",
+        });
+      }
+    }
+
+    // Verify transaction hash if provided
+    if (txHash && TX_RE.test(txHash)) {
+      try {
+        const { verifyTransactionOnChain } = await import("@/lib/xlayerVerifier");
+        const txResult = await verifyTransactionOnChain(txHash);
+        if (txResult.exists && txResult.status === "success") {
+          verifications.push({
+            claim: "Transaction on X Layer",
+            status: "verified",
+            detail: `Transaction confirmed in block ${txResult.blockNumber}, from ${txResult.from?.slice(0, 10)}... to ${txResult.to?.slice(0, 10) || "contract creation"}...`,
+            source: `${XLAYER_EXPLORER}/tx/${txHash}`,
+          });
+          // If we got a sender from the tx, also verify that wallet
+          if (txResult.from && !walletAddr) {
+            claims.walletAddress = txResult.from;
+            const walletResult = await verifyWalletOnChain(txResult.from);
+            if (walletResult.hasActivity) {
+              verifications.push({
+                claim: "Sender wallet on X Layer",
+                status: "verified",
+                detail: `Sender has ${walletResult.txCount} transactions and ${walletResult.balanceFormatted} OKB`,
+                source: `${XLAYER_EXPLORER}/address/${txResult.from}`,
+              });
+            }
+          }
+        } else if (txResult.exists) {
+          verifications.push({
+            claim: "Transaction on X Layer",
+            status: "partial",
+            detail: `Transaction found but status is ${txResult.status}`,
+            source: `${XLAYER_EXPLORER}/tx/${txHash}`,
+          });
+        } else {
+          verifications.push({
+            claim: "Transaction on X Layer",
+            status: "unverified",
+            detail: "Transaction hash not found on X Layer",
+          });
+        }
+      } catch {
+        verifications.push({
+          claim: "Transaction on X Layer",
+          status: "unverified",
+          detail: "Could not verify transaction, RPC call failed",
         });
       }
     }
@@ -137,7 +232,7 @@ export async function POST(req: NextRequest) {
 
     // AI analysis: generate detailed reasoning from the deterministic results
     const aiExplanation = await generateAIAnalysis({
-      claims,
+      claims: claims as ExtractedClaims,
       verifications: scoreResult.results,
       score: scoreResult.score,
       verdict: scoreResult.verdict,

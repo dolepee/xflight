@@ -2,6 +2,16 @@
 
 import { useState } from "react";
 import { keccak256, toBytes } from "viem";
+import {
+  Wallet,
+  Activity,
+  ExternalLink,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ArrowDownUp,
+} from "lucide-react";
 
 interface WalletCheck {
   address: string;
@@ -55,7 +65,6 @@ export default function PreflightPage() {
     setPostResult(null);
 
     try {
-      // Real wallet verification via API
       const walletRes = await fetch("/api/wallet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -64,11 +73,9 @@ export default function PreflightPage() {
       const walletData = await walletRes.json();
       if (!walletRes.ok) throw new Error(walletData.error || "Wallet check failed");
 
-      // Deterministic plan hash from action + wallet + timestamp
       const planInput = `${action}|${wallet}|${Date.now()}`;
       const planHash = keccak256(toBytes(planInput));
 
-      // Build risk flags based on real wallet data
       const riskFlags: string[] = [];
       if (!walletData.hasActivity) riskFlags.push("Wallet has no transaction history");
       if (walletData.balance === "0" || walletData.balance === "0.0") riskFlags.push("Wallet has zero OKB balance");
@@ -81,7 +88,7 @@ export default function PreflightPage() {
         toToken: "USDC",
         amount: "0.1",
         expectedOutput: "~$4.85 (simulated quote)",
-        route: "OKB → WOKB → USDC (Uniswap V3 path, simulated)",
+        route: "OKB > WOKB > USDC (Uniswap V3 path, simulated)",
         slippage: "0.5% default",
         gasEstimate: "~0.002 OKB (estimated)",
         planHash,
@@ -141,24 +148,29 @@ export default function PreflightPage() {
     setLoading(false);
   }
 
+  const verdictColor = (v: string) =>
+    v === "PASS" ? "#00d4aa" : v === "WARNING" ? "#f5a623" : "#ef4444";
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Preflight Check</h1>
-        <p className="text-gray-400">
+      <div className="mb-10">
+        <h1 className="text-2xl font-bold tracking-tight">Preflight Check</h1>
+        <p className="text-[13px] text-[#a1a1aa] mt-2 leading-relaxed">
           Check agent wallet status on X Layer before execution. Wallet
-          verification is live. Route quotes are simulated for demo (no
-          DEX integration in this build).
+          verification is live. Route quotes are simulated for demo.
         </p>
       </div>
 
-      <div className="card mb-6">
-        <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider text-gray-400">
+      {/* Input form */}
+      <div className="bg-[#141414] border border-[#262626] rounded-md p-6 mb-6">
+        <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-5">
           Preflight Plan
         </h3>
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Agent Action</label>
+            <label className="text-[11px] text-[#52525b] uppercase tracking-wider block mb-1.5">
+              Agent Action
+            </label>
             <input
               type="text"
               value={action}
@@ -168,7 +180,9 @@ export default function PreflightPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-gray-400 block mb-1">Wallet Address</label>
+            <label className="text-[11px] text-[#52525b] uppercase tracking-wider block mb-1.5">
+              Wallet Address
+            </label>
             <input
               type="text"
               value={wallet}
@@ -178,68 +192,98 @@ export default function PreflightPage() {
             />
           </div>
           <button
-            className="btn-primary"
+            className="btn-primary flex items-center gap-2"
             onClick={runPreflight}
             disabled={loading || !action.trim() || !wallet.trim()}
           >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
             {loading ? "Checking..." : "Run Preflight"}
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="card border-red-500/30 bg-red-500/5 mb-6">
-          <p className="text-red-400 text-sm">{error}</p>
+        <div className="bg-[rgba(239,68,68,0.06)] border border-[rgba(239,68,68,0.15)] rounded-md p-4 mb-6 flex items-start gap-3">
+          <AlertTriangle size={16} className="text-[#ef4444] mt-0.5 shrink-0" />
+          <p className="text-[#ef4444] text-sm">{error}</p>
         </div>
       )}
 
       {result && (
-        <div className="space-y-6">
-          {/* Wallet verification (real) */}
-          <div className={`card border-l-4 ${result.walletCheck.hasActivity ? "border-l-emerald-500" : result.walletCheck.exists ? "border-l-yellow-500" : "border-l-red-500"}`}>
-            <div className="flex items-center gap-2 mb-3">
-              <span className={`badge ${result.walletCheck.hasActivity ? "badge-success" : result.walletCheck.exists ? "badge-warning" : "badge-danger"}`}>
-                Wallet {result.walletCheck.verdict}
+        <div className="space-y-4">
+          {/* Wallet check */}
+          <div
+            className="bg-[#141414] border rounded-md p-6"
+            style={{
+              borderColor: result.walletCheck.hasActivity
+                ? "rgba(0,212,170,0.3)"
+                : result.walletCheck.exists
+                ? "rgba(245,166,35,0.3)"
+                : "rgba(239,68,68,0.3)",
+            }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <Wallet size={16} className="text-[#a1a1aa]" />
+              <span className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase">
+                Wallet Verification — Live
               </span>
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider">Live on chain check</span>
+              <span
+                className="badge ml-auto"
+                style={{
+                  background: result.walletCheck.hasActivity
+                    ? "rgba(0,212,170,0.1)"
+                    : result.walletCheck.exists
+                    ? "rgba(245,166,35,0.1)"
+                    : "rgba(239,68,68,0.1)",
+                  color: result.walletCheck.hasActivity
+                    ? "#00d4aa"
+                    : result.walletCheck.exists
+                    ? "#f5a623"
+                    : "#ef4444",
+                }}
+              >
+                {result.walletCheck.verdict}
+              </span>
             </div>
-            <div className="grid md:grid-cols-2 gap-3 text-sm">
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-gray-500">Address</span>
-                <span className="font-mono text-xs">{result.walletCheck.address}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-gray-500">Balance</span>
-                <span className="font-mono text-xs">{result.walletCheck.balance} OKB</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-gray-500">Transaction Count</span>
-                <span className="font-mono text-xs">{result.walletCheck.txCount}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-gray-500">Is Contract</span>
-                <span className="font-mono text-xs">{result.walletCheck.isContract ? "Yes" : "No (EOA)"}</span>
-              </div>
+            <div className="grid md:grid-cols-2 gap-2">
+              {[
+                { label: "Address", value: result.walletCheck.address, mono: true },
+                { label: "Balance", value: `${result.walletCheck.balance} OKB`, mono: true },
+                { label: "TX Count", value: String(result.walletCheck.txCount), mono: true },
+                { label: "Type", value: result.walletCheck.isContract ? "Contract" : "EOA", mono: true },
+              ].map((row) => (
+                <div
+                  key={row.label}
+                  className="flex items-center justify-between p-3 rounded bg-[#0a0a0a] border border-[#1a1a1a]"
+                >
+                  <span className="text-[11px] text-[#52525b] uppercase tracking-wider">{row.label}</span>
+                  <span className={`text-[12px] text-white ${row.mono ? "font-mono" : ""} truncate max-w-[60%]`}>
+                    {row.value}
+                  </span>
+                </div>
+              ))}
             </div>
             {result.riskFlags.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-white/5">
-                <span className="text-xs text-gray-500 uppercase">Risk Flags</span>
-                <ul className="mt-1 space-y-0.5">
-                  {result.riskFlags.map((flag, i) => (
-                    <li key={i} className="text-xs text-yellow-400">⚠ {flag}</li>
-                  ))}
-                </ul>
+              <div className="mt-4 space-y-1">
+                {result.riskFlags.map((flag, i) => (
+                  <div key={i} className="flex items-center gap-2 text-[12px] text-[#f5a623]">
+                    <AlertTriangle size={12} />
+                    {flag}
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
-          {/* Route plan (simulated) */}
-          <div className="card">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="badge badge-neutral">Route Plan</span>
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider">Simulated</span>
+          {/* Route plan */}
+          <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <ArrowDownUp size={16} className="text-[#a1a1aa]" />
+              <span className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase">
+                Route Plan — Simulated
+              </span>
             </div>
-            <div className="grid md:grid-cols-2 gap-3 text-sm">
+            <div className="grid md:grid-cols-2 gap-2">
               {[
                 { label: "Action", value: result.action },
                 { label: "Route", value: result.route },
@@ -248,23 +292,28 @@ export default function PreflightPage() {
                 { label: "Gas Estimate", value: result.gasEstimate },
                 { label: "Plan Hash", value: result.planHash, mono: true },
               ].map((row) => (
-                <div key={row.label} className="flex flex-col gap-1">
-                  <span className="text-xs text-gray-500">{row.label}</span>
-                  <span className={`text-xs ${row.mono ? "font-mono break-all" : ""}`}>{row.value}</span>
+                <div
+                  key={row.label}
+                  className="flex flex-col gap-1 p-3 rounded bg-[#0a0a0a] border border-[#1a1a1a]"
+                >
+                  <span className="text-[11px] text-[#52525b] uppercase tracking-wider">{row.label}</span>
+                  <span className={`text-[12px] text-white ${row.mono ? "font-mono break-all" : ""}`}>
+                    {row.value}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Postflight: attach tx */}
-          <div className="card">
-            <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider text-gray-400">
+          {/* Postflight */}
+          <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
+            <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
               Attach Execution Transaction
             </h3>
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-[12px] text-[#52525b] mb-4">
               After executing the action, paste the X Layer transaction hash to verify it.
             </p>
-            <div className="flex gap-3">
+            <div className="flex items-center gap-3">
               <input
                 type="text"
                 value={attachedTx}
@@ -274,40 +323,51 @@ export default function PreflightPage() {
                 onKeyDown={(e) => e.key === "Enter" && verifyAttachedTx()}
               />
               <button
-                className="btn-primary"
+                className="btn-primary flex items-center gap-2 whitespace-nowrap"
                 onClick={verifyAttachedTx}
                 disabled={loading || !attachedTx.trim()}
               >
+                {loading ? <Loader2 size={14} className="animate-spin" /> : null}
                 Postflight Verify
               </button>
             </div>
           </div>
 
+          {/* Postflight result */}
           {postResult && (
-            <div className={`card border-l-4 ${
-              postResult.verdict === "PASS" ? "border-l-emerald-500" :
-              postResult.verdict === "WARNING" ? "border-l-yellow-500" :
-              "border-l-red-500"
-            }`}>
-              <div className="flex items-center gap-2 mb-3">
-                <span className={`badge ${
-                  postResult.verdict === "PASS" ? "badge-success" :
-                  postResult.verdict === "WARNING" ? "badge-warning" :
-                  "badge-danger"
-                }`}>
+            <div
+              className="bg-[#141414] border rounded-md p-6"
+              style={{ borderColor: `${verdictColor(postResult.verdict)}30` }}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                {postResult.verdict === "PASS" ? (
+                  <CheckCircle2 size={18} style={{ color: verdictColor(postResult.verdict) }} />
+                ) : (
+                  <XCircle size={18} style={{ color: verdictColor(postResult.verdict) }} />
+                )}
+                <span
+                  className="badge"
+                  style={{
+                    background: `${verdictColor(postResult.verdict)}15`,
+                    color: verdictColor(postResult.verdict),
+                  }}
+                >
                   {postResult.verdict}
                 </span>
-                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Live on chain check</span>
+                <span className="text-[10px] font-mono text-[#52525b] tracking-widest uppercase">
+                  Live on-chain check
+                </span>
               </div>
-              <p className="text-sm text-gray-300 mb-2">{postResult.explanation}</p>
+              <p className="text-[13px] text-[#a1a1aa] mb-3">{postResult.explanation}</p>
               {postResult.exists && (
                 <a
                   href={`https://www.oklink.com/xlayer/tx/${postResult.txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-gray-400 hover:text-white transition"
+                  className="inline-flex items-center gap-1 text-xs text-[#52525b] hover:text-[#00d4aa] transition-colors"
                 >
-                  View on OKLink ↗
+                  View on OKLink
+                  <ExternalLink size={10} />
                 </a>
               )}
             </div>

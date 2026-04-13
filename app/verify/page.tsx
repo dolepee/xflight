@@ -1,7 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import {
+  Search,
+  ExternalLink,
+  ChevronRight,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldX,
+  AlertTriangle,
+  Loader2,
+} from "lucide-react";
 
 interface FlightScoreResult {
   score: number;
@@ -31,28 +42,45 @@ interface VerificationResponse {
   explanation: string;
   breakdown: FlightScoreResult["breakdown"];
   claims: Claims;
-  verificationResults: { claim: string; status: string; detail: string }[];
+  verificationResults: { claim: string; status: string; detail: string; source?: string }[];
   attestation: Record<string, unknown>;
   explorerUrl?: string;
   proofUrl: string;
 }
 
-const verdictLabels: Record<string, { label: string; cls: string }> = {
-  strongly_verified: { label: "Strongly Verified", cls: "badge-success" },
-  mostly_verified: { label: "Mostly Verified", cls: "badge-neutral" },
-  partially_verified: { label: "Partially Verified", cls: "badge-warning" },
-  weak_proof: { label: "Weak Proof", cls: "badge-warning" },
-  unverified: { label: "Unverified", cls: "badge-danger" },
+const verdictConfig: Record<string, { label: string; color: string; icon: typeof ShieldCheck }> = {
+  strongly_verified: { label: "Strongly Verified", color: "#00d4aa", icon: ShieldCheck },
+  mostly_verified: { label: "Mostly Verified", color: "#4ade80", icon: ShieldCheck },
+  partially_verified: { label: "Partially Verified", color: "#f5a623", icon: ShieldAlert },
+  weak_proof: { label: "Weak Proof", color: "#f97316", icon: ShieldAlert },
+  unverified: { label: "Unverified", color: "#ef4444", icon: ShieldX },
 };
 
-export default function VerifyPage() {
+const statusColors: Record<string, string> = {
+  verified: "#00d4aa",
+  partial: "#f5a623",
+  unverified: "#52525b",
+  contradicted: "#ef4444",
+};
+
+function VerifyPageInner() {
+  const searchParams = useSearchParams();
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<VerificationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleVerify() {
-    if (!url.trim()) return;
+  useEffect(() => {
+    const prefill = searchParams.get("url");
+    if (prefill) {
+      setUrl(prefill);
+      // Auto-verify if URL came from homepage
+      handleVerifyDirect(prefill);
+    }
+  }, []);
+
+  async function handleVerifyDirect(verifyUrl: string) {
+    if (!verifyUrl.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -61,7 +89,7 @@ export default function VerifyPage() {
       const res = await fetch("/api/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim(), useAI: false }),
+        body: JSON.stringify({ url: verifyUrl.trim(), useAI: false }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Verification failed");
@@ -73,136 +101,206 @@ export default function VerifyPage() {
     }
   }
 
-  function scoreColor(score: number): string {
-    if (score >= 85) return "text-emerald-400";
-    if (score >= 70) return "text-blue-400";
-    if (score >= 50) return "text-yellow-400";
-    if (score >= 25) return "text-orange-400";
-    return "text-red-400";
+  async function handleVerify() {
+    await handleVerifyDirect(url);
   }
+
+  function scoreColor(score: number): string {
+    if (score >= 85) return "#00d4aa";
+    if (score >= 70) return "#4ade80";
+    if (score >= 50) return "#f5a623";
+    if (score >= 25) return "#f97316";
+    return "#ef4444";
+  }
+
+  const vc = result ? verdictConfig[result.verdict] || verdictConfig.unverified : null;
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Verify Agent Claims</h1>
-        <p className="text-gray-400">
-          Paste a Moltbook BuildX post URL, project page, or paste agent text
-          directly. XFlight will extract claims, score evidence, and attest on
-          X Layer.
+      <div className="mb-10">
+        <h1 className="text-2xl font-bold tracking-tight">Verify Agent Claims</h1>
+        <p className="text-[13px] text-[#a1a1aa] mt-2 leading-relaxed">
+          Paste a Moltbook BuildX post URL, project page, or agent text.
+          XFlight extracts claims, scores evidence, and attests the report on X Layer.
         </p>
       </div>
 
-      <div className="card mb-8">
-        <div className="flex gap-3">
-          <input
-            type="text"
-            placeholder="https://www.moltbook.com/posts/... or paste BuildX text"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleVerify()}
-            className="flex-1 font-mono text-sm"
-          />
-          <button
-            className="btn-primary whitespace-nowrap"
-            onClick={handleVerify}
-            disabled={loading || !url.trim()}
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Verifying...
-              </span>
-            ) : (
-              "Verify"
-            )}
-          </button>
+      {/* Search bar */}
+      <div className="flex items-center bg-[#141414] border border-[#262626] rounded-md overflow-hidden focus-within:border-[#00d4aa] transition-all mb-10">
+        <div className="pl-4 text-[#52525b]">
+          <Search size={16} />
         </div>
+        <input
+          type="text"
+          placeholder="https://www.moltbook.com/posts/... or paste BuildX text"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+          className="flex-1 bg-transparent border-none px-3 py-3 text-sm font-mono focus:ring-0 focus:outline-none"
+          style={{ boxShadow: "none" }}
+        />
+        <button
+          className="btn-primary rounded-none px-6 py-3 text-xs tracking-wide flex items-center gap-2"
+          onClick={handleVerify}
+          disabled={loading || !url.trim()}
+        >
+          {loading ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              Verifying
+            </>
+          ) : (
+            "Verify"
+          )}
+        </button>
       </div>
 
       {error && (
-        <div className="card border-red-500/30 bg-red-500/5 mb-6">
-          <p className="text-red-400 text-sm">{error}</p>
+        <div className="bg-[rgba(239,68,68,0.06)] border border-[rgba(239,68,68,0.15)] rounded-md p-4 mb-8 flex items-start gap-3">
+          <AlertTriangle size={16} className="text-[#ef4444] mt-0.5 shrink-0" />
+          <p className="text-[#ef4444] text-sm">{error}</p>
         </div>
       )}
 
-      {result && (
+      {result && vc && (
         <div className="space-y-6">
-          <div className="card">
+          {/* Score header */}
+          <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
             <div className="flex flex-col md:flex-row md:items-center gap-6">
               <div className="text-center md:text-left">
-                <div className={`text-6xl font-bold font-mono ${scoreColor(result.score)}`}>
+                <div
+                  className="text-6xl font-bold font-mono"
+                  style={{ color: scoreColor(result.score) }}
+                >
                   {result.score}
                 </div>
-                <div className="text-sm text-gray-400 mt-1">/ 100 Flight Score</div>
+                <div className="text-[11px] font-mono text-[#52525b] mt-1 tracking-wider">
+                  / 100 FLIGHT SCORE
+                </div>
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
-                  <span className={`badge ${verdictLabels[result.verdict]?.cls || "badge-neutral"}`}>
-                    {verdictLabels[result.verdict]?.label || result.verdict}
+                  <span
+                    className="badge flex items-center gap-1.5"
+                    style={{ background: `${vc.color}15`, color: vc.color }}
+                  >
+                    <vc.icon size={12} />
+                    {vc.label}
                   </span>
                   {result.attestation?.txHash ? (
                     <a
                       href={result.explorerUrl || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-gray-400 hover:text-white transition"
+                      className="inline-flex items-center gap-1 text-[11px] text-[#00d4aa] hover:underline"
                     >
-                      ⛓ On-chain attestation ↗
+                      On-chain attestation
+                      <ExternalLink size={10} />
                     </a>
                   ) : (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-[11px] text-[#52525b]">
                       {result.attestation?.note
                         ? String(result.attestation.note)
-                        : "Pending on-chain attestation"}
+                        : "Pending attestation"}
                     </span>
                   )}
                 </div>
-                <p className="text-gray-300 text-sm">{result.explanation}</p>
+                <p className="text-[13px] text-[#a1a1aa] leading-relaxed">{result.explanation}</p>
                 {result.proofUrl && (
-                  <Link href={result.proofUrl}>
-                    <button className="mt-3 text-xs text-gray-400 hover:text-white transition">
-                      View full proof card →
-                    </button>
+                  <Link
+                    href={result.proofUrl}
+                    className="inline-flex items-center gap-1 mt-3 text-xs text-[#52525b] hover:text-[#00d4aa] transition-colors"
+                  >
+                    View proof card
+                    <ChevronRight size={12} />
                   </Link>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="card">
-            <h3 className="font-semibold text-sm uppercase tracking-wider text-gray-400 mb-4">
+          {/* Verification results */}
+          {result.verificationResults.length > 0 && (
+            <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
+              <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
+                Verification Results
+              </h3>
+              <div className="space-y-2">
+                {result.verificationResults.map((v, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 p-3 rounded bg-[#0a0a0a] border border-[#1a1a1a]"
+                  >
+                    <div
+                      className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
+                      style={{ background: statusColors[v.status] || "#52525b" }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] font-medium text-white">{v.claim}</span>
+                        <span
+                          className="text-[10px] font-mono uppercase tracking-wider"
+                          style={{ color: statusColors[v.status] || "#52525b" }}
+                        >
+                          {v.status}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#52525b] mt-0.5">{v.detail}</p>
+                    </div>
+                    {v.source && (
+                      <a
+                        href={v.source}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#52525b] hover:text-[#00d4aa] transition-colors shrink-0"
+                      >
+                        <ExternalLink size={12} />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Extracted claims */}
+          <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
+            <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
               Extracted Claims
             </h3>
-            <div className="grid md:grid-cols-2 gap-3">
+            <div className="grid md:grid-cols-2 gap-2">
               {[
                 { label: "Agent Name", value: result.claims.agentName },
                 { label: "Wallet", value: result.claims.walletAddress, mono: true },
                 { label: "TX Count", value: result.claims.transactionCount },
                 { label: "Claimed PnL", value: result.claims.claimedPnl ? `$${result.claims.claimedPnl.toLocaleString()} ${result.claims.pnlCurrency || "USD"}` : null },
-                { label: "OnchainOS", value: result.claims.onchainosUsed ? "Claimed" : "Not mentioned" },
-                { label: "Uniswap", value: result.claims.uniswapUsed ? "Claimed" : "Not mentioned" },
+                { label: "OnchainOS", value: result.claims.onchainosUsed ? "Claimed" : null },
+                { label: "Uniswap", value: result.claims.uniswapUsed ? "Claimed" : null },
                 { label: "Contract", value: result.claims.deployedContract, mono: true },
                 { label: "GitHub", value: result.claims.githubUrl, link: true },
                 { label: "Live Demo", value: result.claims.liveDemoUrl, link: true },
               ]
                 .filter((row) => row.value)
                 .map((row) => (
-                  <div key={row.label} className="flex flex-col gap-1 p-3 bg-white/3 rounded-lg">
-                    <span className="text-xs text-gray-500 uppercase tracking-wider">{row.label}</span>
+                  <div
+                    key={row.label}
+                    className="flex items-center justify-between p-3 rounded bg-[#0a0a0a] border border-[#1a1a1a]"
+                  >
+                    <span className="text-[11px] text-[#52525b] uppercase tracking-wider">
+                      {row.label}
+                    </span>
                     {row.link ? (
                       <a
                         href={String(row.value)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-blue-400 hover:text-blue-300 truncate"
+                        className="text-[12px] text-[#00d4aa] hover:underline truncate max-w-[60%] inline-flex items-center gap-1"
                       >
-                        {String(row.value)}
+                        {String(row.value).replace(/https?:\/\//, "").slice(0, 40)}
+                        <ExternalLink size={10} />
                       </a>
                     ) : (
-                      <span className={`text-sm ${row.mono ? "font-mono" : ""}`}>
+                      <span className={`text-[12px] ${row.mono ? "font-mono" : ""} text-white truncate max-w-[60%]`}>
                         {String(row.value)}
                       </span>
                     )}
@@ -211,43 +309,44 @@ export default function VerifyPage() {
             </div>
           </div>
 
-          <div className="card">
-            <h3 className="font-semibold text-sm uppercase tracking-wider text-gray-400 mb-4">
+          {/* Score breakdown */}
+          <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
+            <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
               Flight Score Breakdown
             </h3>
-            <div className="space-y-3">
-              {result.breakdown.map((item) => (
-                <div key={item.category}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>{item.category}</span>
-                    <span className="font-mono">
-                      <span className={item.points >= item.max * 0.7 ? "text-emerald-400" : item.points >= item.max * 0.4 ? "text-yellow-400" : "text-red-400"}>
-                        {item.points}
+            <div className="space-y-4">
+              {result.breakdown.map((item) => {
+                const pct = item.max > 0 ? item.points / item.max : 0;
+                const barColor = pct >= 0.7 ? "#00d4aa" : pct >= 0.4 ? "#f5a623" : "#ef4444";
+                return (
+                  <div key={item.category}>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-[12px] text-white">{item.category}</span>
+                      <span className="font-mono text-[12px]">
+                        <span style={{ color: barColor }}>{item.points}</span>
+                        <span className="text-[#333]">/{item.max}</span>
                       </span>
-                      <span className="text-gray-600">/{item.max}</span>
-                    </span>
+                    </div>
+                    <div className="h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct * 100}%`, background: barColor }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-[#52525b] mt-1">{item.reason}</p>
                   </div>
-                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${(item.points / item.max) * 100}%`,
-                        background: item.points >= item.max * 0.7 ? "#10b981" : item.points >= item.max * 0.4 ? "#f59e0b" : "#ef4444",
-                      }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">{item.reason}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
+          {/* Report hash */}
           {result.reportHash && (
-            <div className="card">
-              <h3 className="font-semibold text-sm uppercase tracking-wider text-gray-400 mb-3">
+            <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
+              <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-3">
                 Report Hash
               </h3>
-              <code className="text-xs font-mono text-gray-400 break-all block">
+              <code className="text-[11px] font-mono text-[#a1a1aa] break-all block">
                 {result.reportHash}
               </code>
             </div>
@@ -255,5 +354,13 @@ export default function VerifyPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense>
+      <VerifyPageInner />
+    </Suspense>
   );
 }

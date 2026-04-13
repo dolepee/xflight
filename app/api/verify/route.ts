@@ -6,6 +6,7 @@ import { generateReportId, generateReportHash, saveReport, XFlightReport } from 
 import { attestReport } from "@/lib/attestation";
 import { verifyWalletOnChain, verifyContractOnChain, getWalletTxSample } from "@/lib/xlayerVerifier";
 import { XLAYER_EXPLORER } from "@/lib/chains";
+import { generateAIAnalysis } from "@/lib/aiAnalysis";
 
 export const runtime = "nodejs";
 
@@ -134,6 +135,16 @@ export async function POST(req: NextRequest) {
     // Score with real verifications
     const scoreResult = calculateFlightScore(claims, verifications);
 
+    // AI analysis: generate detailed reasoning from the deterministic results
+    const aiExplanation = await generateAIAnalysis({
+      claims,
+      verifications: scoreResult.results,
+      score: scoreResult.score,
+      verdict: scoreResult.verdict,
+      breakdown: scoreResult.breakdown,
+      postText: post.content,
+    });
+
     // Build report
     const reportId = generateReportId();
     const reportData = {
@@ -144,7 +155,7 @@ export async function POST(req: NextRequest) {
       claims,
       verificationResults: scoreResult.results,
       flightScoreBreakdown: scoreResult.breakdown,
-      explanation: scoreResult.explanation,
+      explanation: aiExplanation || scoreResult.explanation,
       timestamp: new Date().toISOString(),
       verifier: "XFlight BlackBox v0.1",
     };
@@ -181,7 +192,7 @@ export async function POST(req: NextRequest) {
       reportHash,
       score: scoreResult.score,
       verdict: scoreResult.verdict,
-      explanation: scoreResult.explanation,
+      explanation: aiExplanation || scoreResult.explanation,
       breakdown: scoreResult.breakdown,
       claims,
       verificationResults: scoreResult.results,

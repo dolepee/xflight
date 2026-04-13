@@ -4,23 +4,15 @@
   --bg-primary: #0a0a0a;
   --bg-secondary: #111111;
   --bg-card: #141414;
-  --bg-card-hover: #1a1a1a;
   --accent: #00d4aa;
   --accent-dim: rgba(0, 212, 170, 0.1);
-  --accent-glow: rgba(0, 212, 170, 0.15);
-  --success: #00d4aa;
-  --warning: #f5a623;
-  --danger: #ef4444;
   --text: #fafafa;
   --text-secondary: #a1a1aa;
   --text-muted: #52525b;
   --border: #262626;
-  --border-hover: #00d4aa;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   background: var(--bg-primary);
@@ -34,11 +26,30 @@ body {
   font-family: var(--font-mono), ui-monospace, 'Courier New', monospace;
 }
 
-a {
-  text-decoration: none;
+a { text-decoration: none; }
+
+/* Background grid */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 64px 64px;
 }
 
-/* Input styling */
+/* Noise overlay */
+.noise-overlay::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Inputs */
 input, textarea {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -50,12 +61,10 @@ input, textarea {
   outline: none;
   transition: border-color 0.2s ease;
 }
-
 input:focus, textarea:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(0, 212, 170, 0.2);
+  box-shadow: 0 0 0 1px rgba(0,212,170,0.2);
 }
-
 input::placeholder, textarea::placeholder {
   color: var(--text-muted);
 }
@@ -72,18 +81,13 @@ input::placeholder, textarea::placeholder {
   cursor: pointer;
   letter-spacing: 0.02em;
   transition: all 0.15s ease;
-  box-shadow: 0 0 20px rgba(0, 212, 170, 0.15);
+  box-shadow: 0 0 20px rgba(0,212,170,0.15);
 }
-
 .btn-primary:hover {
   background: #00e8bb;
-  box-shadow: 0 0 30px rgba(0, 212, 170, 0.25);
+  box-shadow: 0 0 30px rgba(0,212,170,0.25);
 }
-
-.btn-primary:active {
-  transform: scale(0.98);
-}
-
+.btn-primary:active { transform: scale(0.98); }
 .btn-primary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -102,7 +106,6 @@ input::placeholder, textarea::placeholder {
   cursor: pointer;
   transition: all 0.15s ease;
 }
-
 .btn-secondary:hover {
   border-color: var(--accent);
   color: var(--accent);
@@ -114,11 +117,41 @@ input::placeholder, textarea::placeholder {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 24px;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.card-hover:hover {
-  border-color: rgba(0, 212, 170, 0.3);
+/* Gradient border card */
+.card-glow {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 24px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background-clip: padding-box;
+}
+.card-glow::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #262626, #262626);
+  z-index: -1;
+  transition: background 0.4s ease;
+}
+.card-glow:hover::before {
+  background: linear-gradient(135deg, #00d4aa, #7c3aed, #00d4aa);
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+.card-glow:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(0,212,170,0.08);
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 /* Badges */
@@ -132,40 +165,74 @@ input::placeholder, textarea::placeholder {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
+.badge-success { background: rgba(0,212,170,0.1); color: #00d4aa; }
+.badge-warning { background: rgba(245,166,35,0.1); color: #f5a623; }
+.badge-danger { background: rgba(239,68,68,0.1); color: #ef4444; }
+.badge-neutral { background: rgba(161,161,170,0.1); color: #a1a1aa; }
+.badge-accent { background: rgba(0,212,170,0.1); color: #00d4aa; }
 
-.badge-success { background: rgba(0, 212, 170, 0.1); color: #00d4aa; }
-.badge-warning { background: rgba(245, 166, 35, 0.1); color: #f5a623; }
-.badge-danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-.badge-neutral { background: rgba(161, 161, 170, 0.1); color: #a1a1aa; }
-.badge-accent { background: rgba(0, 212, 170, 0.1); color: #00d4aa; }
-
-/* Status pulse */
+/* Pulse */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
+.pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
 
-.pulse-dot {
-  animation: pulse-dot 2s ease-in-out infinite;
+/* Active step glow */
+@keyframes step-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(0,212,170,0.3); }
+  50% { box-shadow: 0 0 20px rgba(0,212,170,0.5); }
+}
+.step-active {
+  border-color: #00d4aa !important;
+  animation: step-glow 2s ease-in-out infinite;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
+/* Shimmer for verified badge */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.shimmer-badge {
+  background: linear-gradient(
+    90deg,
+    #00d4aa 0%,
+    #00ffcc 25%,
+    #00d4aa 50%,
+    #00ffcc 75%,
+    #00d4aa 100%
+  );
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+/* Score ring */
+.score-ring {
+  transform: rotate(-90deg);
 }
-
-::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 2px;
+.score-ring-track {
+  fill: none;
+  stroke: #1a1a1a;
+  stroke-width: 4;
+}
+.score-ring-fill {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1.5s ease-out;
 }
 
 /* Glow line */
 .glow-line {
   background: linear-gradient(90deg, transparent, var(--accent), transparent);
   height: 1px;
-  opacity: 0.3;
+  opacity: 0.2;
 }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }

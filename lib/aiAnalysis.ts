@@ -1,5 +1,14 @@
+import OpenAI from "openai";
 import { VerificationResult } from "./flightScorer";
 import { ExtractedClaims } from "./claims";
+
+const ai = new OpenAI({
+  baseURL: "https://llm.bankr.bot/v1",
+  apiKey: process.env.BANKR_LLM_KEY || "",
+  defaultHeaders: { "X-API-Key": process.env.BANKR_LLM_KEY || "" },
+});
+
+const MODEL = "deepseek-v3.2";
 
 interface AnalysisInput {
   claims: ExtractedClaims;
@@ -24,17 +33,13 @@ Rules:
 Output ONLY the analysis text, no formatting or headers.`;
 
 export async function generateAIAnalysis(input: AnalysisInput): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return input.verdict.replace(/_/g, " ");
+  if (!process.env.BANKR_LLM_KEY) return "";
 
   try {
-    const { OpenAI } = await import("openai");
-    const client = new OpenAI({ apiKey });
-
     const context = buildContext(input);
 
-    const response = await client.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    const response = await ai.chat.completions.create({
+      model: MODEL,
       messages: [
         { role: "system", content: ANALYSIS_PROMPT },
         { role: "user", content: context },
@@ -43,9 +48,9 @@ export async function generateAIAnalysis(input: AnalysisInput): Promise<string> 
       max_tokens: 300,
     });
 
-    return response.choices[0]?.message?.content?.trim() || input.verdict.replace(/_/g, " ");
+    return response.choices[0]?.message?.content?.trim() || "";
   } catch {
-    return input.verdict.replace(/_/g, " ");
+    return "";
   }
 }
 

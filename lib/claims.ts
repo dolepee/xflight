@@ -31,7 +31,7 @@ export async function extractClaims(
   text: string,
   useAI: boolean = false
 ): Promise<ExtractedClaims> {
-  if (useAI && process.env.OPENAI_API_KEY) {
+  if (useAI && process.env.BANKR_LLM_KEY) {
     try {
       return await extractClaimsAI(text);
     } catch {
@@ -42,8 +42,12 @@ export async function extractClaims(
 }
 
 async function extractClaimsAI(text: string): Promise<ExtractedClaims> {
-  const { OpenAI } = await import("openai");
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const OpenAI = (await import("openai")).default;
+  const client = new OpenAI({
+    baseURL: "https://llm.bankr.bot/v1",
+    apiKey: process.env.BANKR_LLM_KEY || "",
+    defaultHeaders: { "X-API-Key": process.env.BANKR_LLM_KEY || "" },
+  });
 
   const prompt = `Extract structured claims from this BuildX post. Return ONLY valid JSON with these fields (null if not mentioned):
 - agentName: string | null
@@ -63,7 +67,7 @@ BuildX post:
 ${text.slice(0, 2000)}`;
 
   const response = await client.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+    model: "deepseek-v3.2",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.1,
     max_tokens: 800,

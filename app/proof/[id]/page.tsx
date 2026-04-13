@@ -64,7 +64,7 @@ export default function ProofPage({
       <div className="max-w-4xl mx-auto px-6 py-20 flex items-center justify-center">
         <div className="text-center">
           <Loader2 size={24} className="animate-spin text-[#00d4aa] mx-auto" />
-          <p className="text-[#52525b] text-sm mt-4">Loading proof card...</p>
+          <p className="text-[#52526b] text-sm mt-4">Loading proof card...</p>
         </div>
       </div>
     );
@@ -73,9 +73,9 @@ export default function ProofPage({
   if (notFound || !report) {
     return (
       <div className="max-w-4xl mx-auto px-6 py-20 text-center">
-        <ShieldX size={32} className="text-[#52525b] mx-auto" />
+        <ShieldX size={32} className="text-[#52526b] mx-auto" />
         <h1 className="text-xl font-bold mt-4 mb-2">Report Not Found</h1>
-        <p className="text-[#52525b] text-sm mb-6">
+        <p className="text-[#52526b] text-sm mb-6">
           This proof card does not exist or has been removed.
         </p>
         <Link href="/verify">
@@ -92,17 +92,17 @@ export default function ProofPage({
     <div className="max-w-4xl mx-auto px-6 py-12">
       <Link
         href="/"
-        className="inline-flex items-center gap-1.5 text-[12px] text-[#52525b] hover:text-[#00d4aa] transition-colors mb-8"
+        className="inline-flex items-center gap-1.5 text-[12px] text-[#52526b] hover:text-[#00d4aa] transition-colors mb-8"
       >
         <ArrowLeft size={14} />
         Back
       </Link>
 
       {/* Main proof card */}
-      <div className="bg-[#141414] border border-[#262626] rounded-md p-8 mb-6">
+      <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-8 mb-6">
         <div className="flex items-center gap-3 mb-8">
           <span className="text-[15px] font-bold text-white">XFlight Proof Card</span>
-          <span className="font-mono text-[10px] text-[#52525b] tracking-wider">{report.id}</span>
+          <span className="font-mono text-[10px] text-[#52526b] tracking-wider">{report.id}</span>
         </div>
 
         <div className="flex flex-col md:flex-row gap-8">
@@ -113,7 +113,7 @@ export default function ProofPage({
             >
               {report.score}
             </div>
-            <div className="text-[11px] font-mono text-[#52525b] mt-2 tracking-wider">
+            <div className="text-[11px] font-mono text-[#52526b] mt-2 tracking-wider">
               / 100
             </div>
           </div>
@@ -143,10 +143,10 @@ export default function ProofPage({
               </span>
             </div>
 
-            <p className="text-[13px] text-[#a1a1aa] leading-relaxed">{report.explanation}</p>
+            <p className="text-[13px] text-[#a1a1b5] leading-relaxed">{report.explanation}</p>
 
             {report.projectUrl && (
-              <div className="text-[12px] text-[#52525b]">
+              <div className="text-[12px] text-[#52526b]">
                 Source:{" "}
                 <a
                   href={report.projectUrl}
@@ -160,9 +160,9 @@ export default function ProofPage({
             )}
 
             {report.reportHash && (
-              <div className="text-[11px] text-[#52525b]">
+              <div className="text-[11px] text-[#52526b]">
                 Hash:{" "}
-                <code className="font-mono text-[#a1a1aa] break-all">
+                <code className="font-mono text-[#a1a1b5] break-all">
                   {report.reportHash}
                 </code>
               </div>
@@ -173,8 +173,8 @@ export default function ProofPage({
 
       {/* Score breakdown */}
       {Array.isArray(report.flightScoreBreakdown) && report.flightScoreBreakdown.length > 0 && (
-        <div className="bg-[#141414] border border-[#262626] rounded-md p-6 mb-4">
-          <h2 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
+        <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6 mb-4">
+          <h2 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">
             Score Breakdown
           </h2>
           <div className="space-y-4">
@@ -189,16 +189,16 @@ export default function ProofPage({
                     <span className="text-[12px] text-white">{String(item.category)}</span>
                     <span className="font-mono text-[12px]">
                       <span style={{ color: barColor }}>{pts}</span>
-                      <span className="text-[#333]">/{max}</span>
+                      <span className="text-[#252a3a]">/{max}</span>
                     </span>
                   </div>
-                  <div className="h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
+                  <div className="h-1 bg-[#151a25] rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{ width: `${pct * 100}%`, background: barColor }}
                     />
                   </div>
-                  <p className="text-[11px] text-[#52525b] mt-1">{String(item.reason)}</p>
+                  <p className="text-[11px] text-[#52526b] mt-1">{String(item.reason)}</p>
                 </div>
               );
             })}
@@ -208,8 +208,8 @@ export default function ProofPage({
 
       {/* Claims */}
       {report.claims && Object.keys(report.claims).length > 0 && (
-        <div className="bg-[#141414] border border-[#262626] rounded-md p-6 mb-4">
-          <h2 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
+        <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6 mb-4">
+          <h2 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">
             Extracted Claims
           </h2>
           <div className="grid md:grid-cols-2 gap-2">
@@ -218,9 +218,9 @@ export default function ProofPage({
               .map(([key, value]) => (
                 <div
                   key={key}
-                  className="flex items-center justify-between p-3 rounded bg-[#0a0a0a] border border-[#1a1a1a]"
+                  className="flex items-center justify-between p-3 rounded bg-[#06080d] border border-[#151a25]"
                 >
-                  <span className="text-[11px] text-[#52525b] uppercase tracking-wider">
+                  <span className="text-[11px] text-[#52526b] uppercase tracking-wider">
                     {key.replace(/([A-Z])/g, " $1").trim()}
                   </span>
                   <span className="text-[12px] font-mono text-white truncate max-w-[60%]">
@@ -232,7 +232,7 @@ export default function ProofPage({
         </div>
       )}
 
-      <div className="text-center text-[10px] font-mono text-[#333] mt-8">
+      <div className="text-center text-[10px] font-mono text-[#252a3a] mt-8">
         Generated by XFlight BlackBox · X Layer · {new Date(report.timestamp).toLocaleString()}
       </div>
     </div>

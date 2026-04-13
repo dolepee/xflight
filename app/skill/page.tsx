@@ -43,12 +43,12 @@ export default function SkillPage() {
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-4">
           <Package size={18} className="text-[#00d4aa]" />
-          <span className="text-[11px] font-mono text-[#52525b] tracking-widest">
+          <span className="text-[11px] font-mono text-[#52526b] tracking-widest">
             SKILL · OPENCLAW / ONCHAINOS
           </span>
         </div>
         <h1 className="text-2xl font-bold tracking-tight">xflight-skill</h1>
-        <p className="text-[13px] text-[#a1a1aa] mt-2 leading-relaxed">
+        <p className="text-[13px] text-[#a1a1b5] mt-2 leading-relaxed">
           Reusable proof verification skill for autonomous agents on X Layer.
           Verify Moltbook posts, tx hashes, and wallets. Generate proof cards and
           attest reports on-chain.
@@ -56,34 +56,34 @@ export default function SkillPage() {
       </div>
 
       {/* Installation */}
-      <div className="bg-[#141414] border border-[#262626] rounded-md p-6 mb-4">
-        <h2 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
+      <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6 mb-4">
+        <h2 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">
           Installation
         </h2>
-        <div className="bg-[#0a0a0a] rounded border border-[#1a1a1a] p-4">
-          <pre className="text-[13px] font-mono text-[#a1a1aa] overflow-x-auto">
+        <div className="bg-[#06080d] rounded border border-[#151a25] p-4">
+          <pre className="text-[13px] font-mono text-[#a1a1b5] overflow-x-auto">
 {`npm install xflight-skill`}
           </pre>
         </div>
       </div>
 
       {/* Commands */}
-      <div className="bg-[#141414] border border-[#262626] rounded-md p-6 mb-4">
-        <h2 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
+      <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6 mb-4">
+        <h2 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">
           Available Commands
         </h2>
         <div className="space-y-1">
           {commands.map((tool) => (
             <div
               key={tool.cmd}
-              className="p-4 rounded bg-[#0a0a0a] border border-[#1a1a1a] hover:border-[rgba(0,212,170,0.2)] transition-colors"
+              className="p-4 rounded bg-[#06080d] border border-[#151a25] hover:border-[rgba(0,212,170,0.2)] transition-colors"
             >
               <div className="flex items-start gap-2">
                 <Terminal size={14} className="text-[#00d4aa] mt-0.5 shrink-0" />
                 <div>
                   <code className="text-[13px] text-[#00d4aa] font-mono font-medium">{tool.cmd}</code>
-                  <p className="text-[11px] font-mono text-[#52525b] mt-0.5">{tool.args}</p>
-                  <p className="text-[12px] text-[#a1a1aa] mt-1.5">{tool.desc}</p>
+                  <p className="text-[11px] font-mono text-[#52526b] mt-0.5">{tool.args}</p>
+                  <p className="text-[12px] text-[#a1a1b5] mt-1.5">{tool.desc}</p>
                 </div>
               </div>
             </div>
@@ -92,12 +92,12 @@ export default function SkillPage() {
       </div>
 
       {/* Usage */}
-      <div className="bg-[#141414] border border-[#262626] rounded-md p-6 mb-4">
-        <h2 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
+      <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6 mb-4">
+        <h2 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">
           Usage Example
         </h2>
-        <div className="bg-[#0a0a0a] rounded border border-[#1a1a1a] p-4">
-          <pre className="text-[13px] font-mono text-[#a1a1aa] overflow-x-auto leading-relaxed">
+        <div className="bg-[#06080d] rounded border border-[#151a25] p-4">
+          <pre className="text-[13px] font-mono text-[#a1a1b5] overflow-x-auto leading-relaxed">
 {`import { xflight } from 'xflight-skill';
 
 xflight.configure({
@@ -123,8 +123,8 @@ await xflight.attest_report({
       </div>
 
       {/* Score reference */}
-      <div className="bg-[#141414] border border-[#262626] rounded-md p-6 mb-8">
-        <h2 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
+      <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6 mb-8">
+        <h2 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">
           Flight Score Reference
         </h2>
         <div className="space-y-2">
@@ -138,7 +138,7 @@ await xflight.attest_report({
                 {b.range}
               </span>
               <div className="w-2 h-2 rounded-sm" style={{ background: b.color }} />
-              <span className="text-[12px] text-[#a1a1aa]">{b.label}</span>
+              <span className="text-[12px] text-[#a1a1b5]">{b.label}</span>
             </div>
           ))}
         </div>

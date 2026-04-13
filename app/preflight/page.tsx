@@ -155,20 +155,20 @@ export default function PreflightPage() {
     <div className="max-w-4xl mx-auto px-6 py-12">
       <div className="mb-10">
         <h1 className="text-2xl font-bold tracking-tight">Preflight Check</h1>
-        <p className="text-[13px] text-[#a1a1aa] mt-2 leading-relaxed">
+        <p className="text-[13px] text-[#a1a1b5] mt-2 leading-relaxed">
           Check agent wallet status on X Layer before execution. Wallet
           verification is live. Route quotes are simulated for demo.
         </p>
       </div>
 
       {/* Input form */}
-      <div className="bg-[#141414] border border-[#262626] rounded-md p-6 mb-6">
-        <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-5">
+      <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6 mb-6">
+        <h3 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-5">
           Preflight Plan
         </h3>
         <div className="space-y-4">
           <div>
-            <label className="text-[11px] text-[#52525b] uppercase tracking-wider block mb-1.5">
+            <label className="text-[11px] text-[#52526b] uppercase tracking-wider block mb-1.5">
               Agent Action
             </label>
             <input
@@ -180,7 +180,7 @@ export default function PreflightPage() {
             />
           </div>
           <div>
-            <label className="text-[11px] text-[#52525b] uppercase tracking-wider block mb-1.5">
+            <label className="text-[11px] text-[#52526b] uppercase tracking-wider block mb-1.5">
               Wallet Address
             </label>
             <input
@@ -213,7 +213,7 @@ export default function PreflightPage() {
         <div className="space-y-4">
           {/* Wallet check */}
           <div
-            className="bg-[#141414] border rounded-md p-6"
+            className="bg-[#0d1117] border rounded-md p-6"
             style={{
               borderColor: result.walletCheck.hasActivity
                 ? "rgba(0,212,170,0.3)"
@@ -223,8 +223,8 @@ export default function PreflightPage() {
             }}
           >
             <div className="flex items-center gap-3 mb-4">
-              <Wallet size={16} className="text-[#a1a1aa]" />
-              <span className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase">
+              <Wallet size={16} className="text-[#a1a1b5]" />
+              <span className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase">
                 Wallet Verification — Live
               </span>
               <span
@@ -254,9 +254,9 @@ export default function PreflightPage() {
               ].map((row) => (
                 <div
                   key={row.label}
-                  className="flex items-center justify-between p-3 rounded bg-[#0a0a0a] border border-[#1a1a1a]"
+                  className="flex items-center justify-between p-3 rounded bg-[#06080d] border border-[#151a25]"
                 >
-                  <span className="text-[11px] text-[#52525b] uppercase tracking-wider">{row.label}</span>
+                  <span className="text-[11px] text-[#52526b] uppercase tracking-wider">{row.label}</span>
                   <span className={`text-[12px] text-white ${row.mono ? "font-mono" : ""} truncate max-w-[60%]`}>
                     {row.value}
                   </span>
@@ -276,10 +276,10 @@ export default function PreflightPage() {
           </div>
 
           {/* Route plan */}
-          <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
+          <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6">
             <div className="flex items-center gap-3 mb-4">
-              <ArrowDownUp size={16} className="text-[#a1a1aa]" />
-              <span className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase">
+              <ArrowDownUp size={16} className="text-[#a1a1b5]" />
+              <span className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase">
                 Route Plan — Simulated
               </span>
             </div>
@@ -294,9 +294,9 @@ export default function PreflightPage() {
               ].map((row) => (
                 <div
                   key={row.label}
-                  className="flex flex-col gap-1 p-3 rounded bg-[#0a0a0a] border border-[#1a1a1a]"
+                  className="flex flex-col gap-1 p-3 rounded bg-[#06080d] border border-[#151a25]"
                 >
-                  <span className="text-[11px] text-[#52525b] uppercase tracking-wider">{row.label}</span>
+                  <span className="text-[11px] text-[#52526b] uppercase tracking-wider">{row.label}</span>
                   <span className={`text-[12px] text-white ${row.mono ? "font-mono break-all" : ""}`}>
                     {row.value}
                   </span>
@@ -306,11 +306,11 @@ export default function PreflightPage() {
           </div>
 
           {/* Postflight */}
-          <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
-            <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
+          <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6">
+            <h3 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">
               Attach Execution Transaction
             </h3>
-            <p className="text-[12px] text-[#52525b] mb-4">
+            <p className="text-[12px] text-[#52526b] mb-4">
               After executing the action, paste the X Layer transaction hash to verify it.
             </p>
             <div className="flex items-center gap-3">
@@ -336,7 +336,7 @@ export default function PreflightPage() {
           {/* Postflight result */}
           {postResult && (
             <div
-              className="bg-[#141414] border rounded-md p-6"
+              className="bg-[#0d1117] border rounded-md p-6"
               style={{ borderColor: `${verdictColor(postResult.verdict)}30` }}
             >
               <div className="flex items-center gap-3 mb-3">
@@ -354,17 +354,17 @@ export default function PreflightPage() {
                 >
                   {postResult.verdict}
                 </span>
-                <span className="text-[10px] font-mono text-[#52525b] tracking-widest uppercase">
+                <span className="text-[10px] font-mono text-[#52526b] tracking-widest uppercase">
                   Live on-chain check
                 </span>
               </div>
-              <p className="text-[13px] text-[#a1a1aa] mb-3">{postResult.explanation}</p>
+              <p className="text-[13px] text-[#a1a1b5] mb-3">{postResult.explanation}</p>
               {postResult.exists && (
                 <a
                   href={`https://www.oklink.com/xlayer/tx/${postResult.txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-[#52525b] hover:text-[#00d4aa] transition-colors"
+                  className="inline-flex items-center gap-1 text-xs text-[#52526b] hover:text-[#00d4aa] transition-colors"
                 >
                   View on OKLink
                   <ExternalLink size={10} />

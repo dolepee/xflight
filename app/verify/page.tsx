@@ -59,7 +59,7 @@ const verdictConfig: Record<string, { label: string; color: string; icon: typeof
 const statusColors: Record<string, string> = {
   verified: "#00d4aa",
   partial: "#f5a623",
-  unverified: "#52525b",
+  unverified: "#52526b",
   contradicted: "#ef4444",
 };
 
@@ -119,15 +119,15 @@ function VerifyPageInner() {
     <div className="max-w-4xl mx-auto px-6 py-12">
       <div className="mb-10">
         <h1 className="text-2xl font-bold tracking-tight">Verify Agent Claims</h1>
-        <p className="text-[13px] text-[#a1a1aa] mt-2 leading-relaxed">
+        <p className="text-[13px] text-[#a1a1b5] mt-2 leading-relaxed">
           Paste a Moltbook BuildX post URL, project page, or agent text.
           XFlight extracts claims, scores evidence, and attests the report on X Layer.
         </p>
       </div>
 
       {/* Search bar */}
-      <div className="flex items-center bg-[#141414] border border-[#262626] rounded-md overflow-hidden focus-within:border-[#00d4aa] transition-all mb-10">
-        <div className="pl-4 text-[#52525b]">
+      <div className="flex items-center bg-[#0d1117] border border-[#1e2130] rounded-md overflow-hidden focus-within:border-[#00d4aa] transition-all mb-10">
+        <div className="pl-4 text-[#52526b]">
           <Search size={16} />
         </div>
         <input
@@ -165,7 +165,7 @@ function VerifyPageInner() {
       {result && vc && (
         <div className="space-y-6">
           {/* Score header */}
-          <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
+          <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6">
             <div className="flex flex-col md:flex-row md:items-center gap-6">
               <div className="text-center md:text-left">
                 <div
@@ -174,7 +174,7 @@ function VerifyPageInner() {
                 >
                   {result.score}
                 </div>
-                <div className="text-[11px] font-mono text-[#52525b] mt-1 tracking-wider">
+                <div className="text-[11px] font-mono text-[#52526b] mt-1 tracking-wider">
                   / 100 FLIGHT SCORE
                 </div>
               </div>
@@ -198,18 +198,18 @@ function VerifyPageInner() {
                       <ExternalLink size={10} />
                     </a>
                   ) : (
-                    <span className="text-[11px] text-[#52525b]">
+                    <span className="text-[11px] text-[#52526b]">
                       {result.attestation?.note
                         ? String(result.attestation.note)
                         : "Pending attestation"}
                     </span>
                   )}
                 </div>
-                <p className="text-[13px] text-[#a1a1aa] leading-relaxed">{result.explanation}</p>
+                <p className="text-[13px] text-[#a1a1b5] leading-relaxed">{result.explanation}</p>
                 {result.proofUrl && (
                   <Link
                     href={result.proofUrl}
-                    className="inline-flex items-center gap-1 mt-3 text-xs text-[#52525b] hover:text-[#00d4aa] transition-colors"
+                    className="inline-flex items-center gap-1 mt-3 text-xs text-[#52526b] hover:text-[#00d4aa] transition-colors"
                   >
                     View proof card
                     <ChevronRight size={12} />
@@ -221,38 +221,38 @@ function VerifyPageInner() {
 
           {/* Verification results */}
           {result.verificationResults.length > 0 && (
-            <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
-              <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
+            <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6">
+              <h3 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">
                 Verification Results
               </h3>
               <div className="space-y-2">
                 {result.verificationResults.map((v, i) => (
                   <div
                     key={i}
-                    className="flex items-start gap-3 p-3 rounded bg-[#0a0a0a] border border-[#1a1a1a]"
+                    className="flex items-start gap-3 p-3 rounded bg-[#06080d] border border-[#151a25]"
                   >
                     <div
                       className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0"
-                      style={{ background: statusColors[v.status] || "#52525b" }}
+                      style={{ background: statusColors[v.status] || "#52526b" }}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-[12px] font-medium text-white">{v.claim}</span>
                         <span
                           className="text-[10px] font-mono uppercase tracking-wider"
-                          style={{ color: statusColors[v.status] || "#52525b" }}
+                          style={{ color: statusColors[v.status] || "#52526b" }}
                         >
                           {v.status}
                         </span>
                       </div>
-                      <p className="text-[11px] text-[#52525b] mt-0.5">{v.detail}</p>
+                      <p className="text-[11px] text-[#52526b] mt-0.5">{v.detail}</p>
                     </div>
                     {v.source && (
                       <a
                         href={v.source}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[#52525b] hover:text-[#00d4aa] transition-colors shrink-0"
+                        className="text-[#52526b] hover:text-[#00d4aa] transition-colors shrink-0"
                       >
                         <ExternalLink size={12} />
                       </a>
@@ -264,8 +264,8 @@ function VerifyPageInner() {
           )}
 
           {/* Extracted claims */}
-          <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
-            <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
+          <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6">
+            <h3 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">
               Extracted Claims
             </h3>
             <div className="grid md:grid-cols-2 gap-2">
@@ -284,9 +284,9 @@ function VerifyPageInner() {
                 .map((row) => (
                   <div
                     key={row.label}
-                    className="flex items-center justify-between p-3 rounded bg-[#0a0a0a] border border-[#1a1a1a]"
+                    className="flex items-center justify-between p-3 rounded bg-[#06080d] border border-[#151a25]"
                   >
-                    <span className="text-[11px] text-[#52525b] uppercase tracking-wider">
+                    <span className="text-[11px] text-[#52526b] uppercase tracking-wider">
                       {row.label}
                     </span>
                     {row.link ? (
@@ -310,8 +310,8 @@ function VerifyPageInner() {
           </div>
 
           {/* Score breakdown */}
-          <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
-            <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-4">
+          <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6">
+            <h3 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">
               Flight Score Breakdown
             </h3>
             <div className="space-y-4">
@@ -324,16 +324,16 @@ function VerifyPageInner() {
                       <span className="text-[12px] text-white">{item.category}</span>
                       <span className="font-mono text-[12px]">
                         <span style={{ color: barColor }}>{item.points}</span>
-                        <span className="text-[#333]">/{item.max}</span>
+                        <span className="text-[#252a3a]">/{item.max}</span>
                       </span>
                     </div>
-                    <div className="h-1 bg-[#1a1a1a] rounded-full overflow-hidden">
+                    <div className="h-1 bg-[#151a25] rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{ width: `${pct * 100}%`, background: barColor }}
                       />
                     </div>
-                    <p className="text-[11px] text-[#52525b] mt-1">{item.reason}</p>
+                    <p className="text-[11px] text-[#52526b] mt-1">{item.reason}</p>
                   </div>
                 );
               })}
@@ -342,11 +342,11 @@ function VerifyPageInner() {
 
           {/* Report hash */}
           {result.reportHash && (
-            <div className="bg-[#141414] border border-[#262626] rounded-md p-6">
-              <h3 className="text-[11px] font-mono text-[#52525b] tracking-widest uppercase mb-3">
+            <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6">
+              <h3 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-3">
                 Report Hash
               </h3>
-              <code className="text-[11px] font-mono text-[#a1a1aa] break-all block">
+              <code className="text-[11px] font-mono text-[#a1a1b5] break-all block">
                 {result.reportHash}
               </code>
             </div>

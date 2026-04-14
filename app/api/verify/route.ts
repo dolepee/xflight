@@ -7,6 +7,11 @@ import { attestReport } from "@/lib/attestation";
 import { verifyWalletOnChain, verifyContractOnChain, getWalletTxSample } from "@/lib/xlayerVerifier";
 import { XLAYER_EXPLORER } from "@/lib/chains";
 import { generateAIAnalysis } from "@/lib/aiAnalysis";
+import {
+  getOnchainOSPortfolio,
+  hasOnchainOSCredentials,
+  describeOnchainOSUsage,
+} from "@/lib/onchainos";
 
 export const runtime = "nodejs";
 
@@ -227,6 +232,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── OnchainOS skill evidence (okx-wallet-portfolio) ──
+    // When OKX credentials are set, read the wallet portfolio via OnchainOS
+    // and attach the response as first-hand evidence the agent integrates
+    // with OKX DEX/Wallet skills on X Layer.
+    if (walletAddr && WALLET_RE.test(walletAddr) && hasOnchainOSCredentials()) {
+      try {
+        const snap = await getOnchainOSPortfolio(walletAddr);
+        if (snap && snap.assets.length > 0) {
+          verifications.push({
+            claim: "OnchainOS wallet portfolio",
+            status: "verified",
+            detail: `OKX Wallet Portfolio API returned ${snap.assets.length} assets, total value ~$${snap.totalValueUsd}`,
+            source: `${XLAYER_EXPLORER}/address/${walletAddr}`,
+          });
+        } else if (snap) {
+          verifications.push({
+            claim: "OnchainOS wallet portfolio",
+            status: "partial",
+            detail: "OnchainOS responded but wallet has no tracked assets on X Layer",
+          });
+        }
+      } catch {
+        // Soft-fail: OnchainOS unavailable; scorer still works on claim text.
+      }
+    }
+
     // Score with real verifications
     const scoreResult = calculateFlightScore(claims, verifications);
 
@@ -292,6 +323,7 @@ export async function POST(req: NextRequest) {
       claims,
       verificationResults: scoreResult.results,
       attestation,
+      onchainos: describeOnchainOSUsage(),
       explorerUrl: fullReport.txHash ? `${XLAYER_EXPLORER}/tx/${fullReport.txHash}` : null,
       proofUrl: `/proof/${reportId}`,
     });

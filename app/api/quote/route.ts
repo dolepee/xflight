@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { parseUnits } from "viem";
 import { getQuoteWithFallback, parseSwapAction, XLAYER_TOKENS } from "@/lib/dexQuote";
+import { getOnchainOSQuote, hasOnchainOSCredentials } from "@/lib/onchainos";
 
 export const runtime = "nodejs";
 
@@ -39,19 +41,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!XLAYER_TOKENS[from.toUpperCase()]) {
+    const fromMeta = XLAYER_TOKENS[from.toUpperCase()];
+    const toMeta = XLAYER_TOKENS[to.toUpperCase()];
+    if (!fromMeta) {
       return NextResponse.json(
         { error: `Unknown token: ${from}. Supported: ${Object.keys(XLAYER_TOKENS).join(", ")}` },
         { status: 400 }
       );
     }
-    if (!XLAYER_TOKENS[to.toUpperCase()]) {
+    if (!toMeta) {
       return NextResponse.json(
         { error: `Unknown token: ${to}. Supported: ${Object.keys(XLAYER_TOKENS).join(", ")}` },
         { status: 400 }
       );
     }
 
+    // 1) Try OnchainOS (OKX DEX Aggregator) first — canonical hackathon skill surface.
+    if (hasOnchainOSCredentials()) {
+      const amountInWei = parseUnits(qty, fromMeta.decimals).toString();
+      const oos = await getOnchainOSQuote({
+        fromTokenAddress: fromMeta.address,
+        toTokenAddress: toMeta.address,
+        amount: amountInWei,
+        fromSymbol: fromMeta.symbol,
+        toSymbol: toMeta.symbol,
+      });
+      if (oos) {
+        return NextResponse.json({
+          ...oos,
+          chain: "X Layer",
+          chainId: 196,
+          dex: "OKX DEX Aggregator (OnchainOS)",
+          slippage: "0.5%",
+          skill: "okx-dex-swap",
+        });
+      }
+    }
+
+    // 2) Fall back to direct Uniswap V3 QuoterV2 on X Layer.
     const quote = await getQuoteWithFallback(from, to, qty);
 
     return NextResponse.json({
@@ -60,6 +87,9 @@ export async function POST(req: NextRequest) {
       chainId: 196,
       dex: "Uniswap V3",
       slippage: "0.5%",
+      skill: "uniswap-ai",
+      source: quote.live ? "uniswap-v3" : "estimate",
+      onchainosConfigured: hasOnchainOSCredentials(),
     });
   } catch (err) {
     console.error("[/api/quote] Error:", err);

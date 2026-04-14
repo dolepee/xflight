@@ -95,18 +95,33 @@ export function calculateFlightScore(
 
   // ── 15 pts: OnchainOS / Uniswap evidence ──
   let skillPts = 0;
-  if (onchainosClaim) {
-    skillPts += 8;
-    if (!findVerification(results, "onchainos")) {
-      results.push({ claim: "OnchainOS usage", status: "unverified", detail: "OnchainOS claimed in post text, not confirmable from on chain data alone" });
+  const onchainosV = findVerification(results, "onchainos");
+  const dexQuoteV = findVerification(results, "dex quote");
+  const portfolioV = findVerification(results, "portfolio");
+
+  if (onchainosV?.status === "verified") skillPts += 8;
+  else if (onchainosV?.status === "partial") skillPts += 4;
+  else if (onchainosClaim) {
+    skillPts += 3;
+    if (!onchainosV) {
+      results.push({ claim: "OnchainOS usage", status: "unverified", detail: "OnchainOS claimed in post; set OKX_* to enable live skill verification" });
     }
   }
-  if (claims.uniswapUsed) skillPts += 7;
+  if (dexQuoteV?.status === "verified" || portfolioV?.status === "verified") skillPts += 4;
+  if (claims.uniswapUsed) skillPts += 3;
+
+  const skillReasons: string[] = [];
+  if (onchainosV?.status === "verified") skillReasons.push("OnchainOS skills live");
+  else if (onchainosClaim) skillReasons.push("OnchainOS claimed");
+  if (dexQuoteV?.status === "verified") skillReasons.push("DEX quote confirmed");
+  if (portfolioV?.status === "verified") skillReasons.push("wallet portfolio read");
+  if (claims.uniswapUsed) skillReasons.push("Uniswap referenced");
+
   breakdown.push({
     category: "OnchainOS / Uniswap Evidence",
     points: Math.min(skillPts, 15),
     max: 15,
-    reason: onchainosClaim ? "OnchainOS usage claimed in post" : "No OnchainOS/Uniswap usage detected",
+    reason: skillReasons.length > 0 ? skillReasons.join(", ") : "No OnchainOS/Uniswap usage detected",
   });
   score += Math.min(skillPts, 15);
 

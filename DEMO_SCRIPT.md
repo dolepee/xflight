@@ -37,7 +37,7 @@
 
 > "XFlight is the proof layer for autonomous X Layer agents."
 
-**Action:** Click through Dashboard → Verify → Preflight → xflight-skill tabs quickly.
+**Action:** Click through Dashboard â†’ Verify â†’ Preflight â†’ xflight-skill tabs quickly.
 
 ---
 
@@ -58,13 +58,13 @@
 - Report Hash
 - Proof Card link
 
-> "XFlight extracts every claim — wallet address, transaction count, claimed PnL, GitHub repo, deployed contract — and scores them."
+> "XFlight extracts every claim â€” wallet address, transaction count, claimed PnL, GitHub repo, deployed contract â€” and scores them."
 
 ---
 
 ### Scene 4: Proof Card (0:50 - 1:00)
 
-**Action:** Click "View full proof card →" to go to `/proof/[id]`
+**Action:** Click "View full proof card â†’" to go to `/proof/[id]`
 
 > "Here's the shareable proof card. Every claim is laid out with verification status."
 
@@ -88,7 +88,7 @@
 
 **Action:** Go to `/preflight` tab.
 
-> "Agents can also run preflight checks before executing — planning routes, checking slippage, and committing plan hashes on-chain."
+> "Agents can also run preflight checks before executing â€” planning routes, checking slippage, and committing plan hashes on-chain."
 
 **Action:** Enter "Swap 0.1 OKB to USDC on X Layer" and a wallet address, click Run Preflight.
 
@@ -100,11 +100,11 @@
 
 **Action:** Go to `/skill` tab.
 
-> "And for agents that want to verify each other, there's the xflight-skill — callable from any OpenClaw agent."
+> "And for agents that want to verify each other, there's the xflight-skill â€” callable from any OpenClaw agent."
 
 **Action:** Show the skill commands and code example.
 
-> "xflight.verify_moltbook_post, xflight.verify_tx, xflight.attest_report — all available as simple API calls."
+> "xflight.verify_moltbook_post, xflight.verify_tx, xflight.attest_report â€” all available as simple API calls."
 
 ---
 
@@ -114,7 +114,7 @@
 
 > "Agents should not just act. They should leave a flight recorder."
 > 
-> "XFlight — proof court for X Layer."
+> "XFlight â€” proof court for X Layer."
 > 
 > "Check the README for deployment instructions. The contract is live."
 
@@ -136,7 +136,7 @@
 
 If the contract isn't deployed yet, the demo still works. In Scene 5, show:
 
-> "On-chain attestation shows 'pending' — the contract is ready to deploy. Once funded, the report hash will be written permanently to X Layer."
+> "On-chain attestation shows 'pending' â€” the contract is ready to deploy. Once funded, the report hash will be written permanently to X Layer."
 
 The full UI, claim extraction, scoring, and proof card all work without on-chain deployment.
 
@@ -144,4 +144,4 @@ The full UI, claim extraction, scoring, and proof card all work without on-chain
 
 ## Fallback: Using Sample Data
 
-If Moltbook API is unreachable, the app falls back to cached sample posts. The demo works identically — claims are still extracted and scored. Just paste the sample post URL shown in the UI.
+If Moltbook API is unreachable, the app falls back to cached sample posts. The demo works identically â€” claims are still extracted and scored. Just paste the sample post URL shown in the UI.

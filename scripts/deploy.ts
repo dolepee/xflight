@@ -45,13 +45,13 @@ async function main() {
   let walletGenerated = false;
 
   if (!privateKey || privateKey === "0x0000000000000000000000000000000000000000000000000000000000000000") {
-    console.log("No private key found — generating fresh wallet...");
+    console.log("No private key found â€” generating fresh wallet...");
     const wallet = ethers.Wallet.createRandom();
     privateKey = wallet.privateKey;
     walletGenerated = true;
     console.log("\nWallet Address:", wallet.address);
     console.log("Private Key:", wallet.privateKey);
-    console.log("\n⚠️  SAVE THE PRIVATE KEY — you need it to fund the wallet!");
+    console.log("\nâš ï¸  SAVE THE PRIVATE KEY â€” you need it to fund the wallet!");
   }
 
   const wallet = new ethers.Wallet(privateKey);
@@ -61,7 +61,7 @@ async function main() {
   let targetNet = XLAYER_MAINNET;
 
   if (!provider) {
-    console.log("\n⚠️  Mainnet RPC unreachable — switching to Testnet...");
+    console.log("\nâš ï¸  Mainnet RPC unreachable â€” switching to Testnet...");
     provider = await tryNetwork(XLAYER_TESTNET, "X Layer Testnet");
     if (!provider) {
       console.error("No network accessible. Check your internet connection.");
@@ -69,7 +69,7 @@ async function main() {
     }
     targetNet = XLAYER_TESTNET;
     console.log(`\n  Deploying to TESTNET (Chain ID: ${XLAYER_TESTNET.chainId})`);
-    console.log(`  ⚠️  THIS IS TESTNET — attestations are not on mainnet!`);
+    console.log(`  âš ï¸  THIS IS TESTNET â€” attestations are not on mainnet!`);
   }
 
   const connectedWallet = wallet.connect(provider);
@@ -87,7 +87,7 @@ async function main() {
   const MIN_BALANCE = ethers.parseEther("0.002");
 
   if (balance < MIN_BALANCE) {
-    console.log(`\n⚠️  INSUFFICIENT BALANCE (${ethers.formatEther(balance)} OKB < ${ethers.formatEther(MIN_BALANCE)} OKB required)`);
+    console.log(`\nâš ï¸  INSUFFICIENT BALANCE (${ethers.formatEther(balance)} OKB < ${ethers.formatEther(MIN_BALANCE)} OKB required)`);
     console.log("\nTo fund your wallet:");
 
     if (targetNet === XLAYER_TESTNET) {
@@ -162,7 +162,7 @@ async function main() {
 
   try {
     const factory = new ethers.ContractFactory(abi, "0x" + bytecode, connectedWallet);
-    const contractInstance = await factory.deploy();
+    const contractInstance = await factory.deploy(wallet.address);
     console.log("Contract deployed, waiting for confirmation...");
 
     const deployTx = contractInstance.deploymentTransaction();
@@ -172,9 +172,10 @@ async function main() {
     console.log("\n" + "=".repeat(50));
     console.log("DEPLOYMENT SUCCESSFUL");
     console.log("=".repeat(50));
-    console.log(`Network:     ${targetNet === XLAYER_MAINNET ? "X Layer Mainnet" : "X Layer Testnet (⚠️)" }`);
+    console.log(`Network:     ${targetNet === XLAYER_MAINNET ? "X Layer Mainnet" : "X Layer Testnet (âš ï¸)" }`);
     console.log(`Chain ID:   ${targetNet.chainId}`);
     console.log(`Contract:   ${contractAddress}`);
+    console.log(`Attester:   ${wallet.address}`);
     console.log(`TX Hash:    ${receipt?.hash || "pending"}`);
     console.log(`Block:      ${receipt?.blockNumber || "pending"}`);
     console.log(`Explorer:   ${targetNet.explorer}/address/${contractAddress}`);
@@ -208,7 +209,7 @@ async function main() {
     console.log("\n" + "=".repeat(50));
     console.log("NEXT STEPS:");
     console.log("=".repeat(50));
-    console.log("1. npm run dev — start the app");
+    console.log("1. npm run dev â€” start the app");
     console.log("2. Go to http://localhost:3000/verify");
     console.log("3. Paste a Moltbook BuildX post URL");
     console.log("4. See the Flight Score and on-chain attestation!");
@@ -223,3 +224,4 @@ async function main() {
 }
 
 main().catch(console.error);
+

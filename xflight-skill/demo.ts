@@ -46,7 +46,7 @@ async function demo() {
   try {
     const card = await xflight.generate_proof_card({ reportId: post.reportId as string });
     console.log(`   Score: ${card.score}`);
-  } catch (err) {
+  } catch {
     console.log(`   (Report may have been cleared from store)`);
   }
 

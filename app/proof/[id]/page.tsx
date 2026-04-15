@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -43,21 +44,32 @@ export default function ProofPage({
   const [report, setReport] = useState<ProofReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     params.then(({ id }) => {
-      fetch(`/api/proof/${id}`)
+      const query = searchParams.toString();
+      const apiUrl = query ? `/api/proof/${id}?${query}` : `/api/proof/${id}`;
+
+      fetch(apiUrl)
         .then((r) => {
-          if (!r.ok) { setNotFound(true); setLoading(false); return null; }
+          if (!r.ok) {
+            setNotFound(true);
+            setLoading(false);
+            return null;
+          }
           return r.json();
         })
         .then((data) => {
           if (data) setReport(data);
           setLoading(false);
         })
-        .catch(() => { setNotFound(true); setLoading(false); });
+        .catch(() => {
+          setNotFound(true);
+          setLoading(false);
+        });
     });
-  }, []);
+  }, [params, searchParams]);
 
   if (loading) {
     return (
@@ -98,7 +110,6 @@ export default function ProofPage({
         Back
       </Link>
 
-      {/* Main proof card */}
       <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-8 mb-6">
         <div className="flex items-center gap-3 mb-8">
           <span className="text-[15px] font-bold text-white">XFlight Proof Card</span>
@@ -107,23 +118,15 @@ export default function ProofPage({
 
         <div className="flex flex-col md:flex-row gap-8">
           <div className="text-center md:text-left">
-            <div
-              className="text-7xl font-bold font-mono leading-none"
-              style={{ color: vc.color }}
-            >
+            <div className="text-7xl font-bold font-mono leading-none" style={{ color: vc.color }}>
               {report.score}
             </div>
-            <div className="text-[11px] font-mono text-[#52526b] mt-2 tracking-wider">
-              / 100
-            </div>
+            <div className="text-[11px] font-mono text-[#52526b] mt-2 tracking-wider">/ 100</div>
           </div>
 
           <div className="flex-1 space-y-4">
             <div className="flex flex-wrap gap-2 items-center">
-              <span
-                className="badge flex items-center gap-1.5"
-                style={{ background: `${vc.color}15`, color: vc.color }}
-              >
+              <span className="badge flex items-center gap-1.5" style={{ background: `${vc.color}15`, color: vc.color }}>
                 <VerdictIcon size={12} />
                 {vc.label}
               </span>
@@ -138,9 +141,7 @@ export default function ProofPage({
                   <ExternalLink size={10} />
                 </a>
               )}
-              <span className="badge badge-neutral font-mono text-[10px]">
-                {report.verifier}
-              </span>
+              <span className="badge badge-neutral font-mono text-[10px]">{report.verifier}</span>
             </div>
 
             <p className="text-[13px] text-[#a1a1b5] leading-relaxed">{report.explanation}</p>
@@ -162,16 +163,13 @@ export default function ProofPage({
             {report.reportHash && (
               <div className="text-[11px] text-[#52526b]">
                 Hash:{" "}
-                <code className="font-mono text-[#a1a1b5] break-all">
-                  {report.reportHash}
-                </code>
+                <code className="font-mono text-[#a1a1b5] break-all">{report.reportHash}</code>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Score breakdown */}
       {Array.isArray(report.flightScoreBreakdown) && report.flightScoreBreakdown.length > 0 && (
         <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6 mb-4">
           <h2 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">
@@ -193,10 +191,7 @@ export default function ProofPage({
                     </span>
                   </div>
                   <div className="h-1 bg-[#151a25] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${pct * 100}%`, background: barColor }}
-                    />
+                    <div className="h-full rounded-full" style={{ width: `${pct * 100}%`, background: barColor }} />
                   </div>
                   <p className="text-[11px] text-[#52526b] mt-1">{String(item.reason)}</p>
                 </div>
@@ -206,7 +201,6 @@ export default function ProofPage({
         </div>
       )}
 
-      {/* Claims */}
       {report.claims && Object.keys(report.claims).length > 0 && (
         <div className="bg-[#0d1117] border border-[#1e2130] rounded-md p-6 mb-4">
           <h2 className="text-[11px] font-mono text-[#52526b] tracking-widest uppercase mb-4">

@@ -1,22 +1,28 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { fetchPostFromUrl } from "@/lib/moltbook";
 import { extractClaims, type ExtractedClaims } from "@/lib/claims";
-import { calculateFlightScore, VerificationResult } from "@/lib/flightScorer";
-import { generateReportId, generateReportHash, saveReport, XFlightReport } from "@/lib/reportStore";
+import { calculateFlightScore, type VerificationResult } from "@/lib/flightScorer";
+import { buildProofUrl } from "@/lib/reportCodec";
+import { generateReportId, generateReportHash, saveReport, type XFlightReport } from "@/lib/reportStore";
 import { attestReport } from "@/lib/attestation";
 import { verifyWalletOnChain, verifyContractOnChain, getWalletTxSample } from "@/lib/xlayerVerifier";
 import { XLAYER_EXPLORER } from "@/lib/chains";
 import { generateAIAnalysis } from "@/lib/aiAnalysis";
-import {
-  getOnchainOSPortfolio,
-  hasOnchainOSCredentials,
-  describeOnchainOSUsage,
-} from "@/lib/onchainos";
+import { getOnchainOSPortfolio, hasOnchainOSCredentials } from "@/lib/onchainos";
 
 export const runtime = "nodejs";
 
 const WALLET_RE = /^0x[a-fA-F0-9]{40}$/;
 const TX_RE = /^0x[a-fA-F0-9]{64}$/;
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,16 +34,13 @@ export async function POST(req: NextRequest) {
     }
 
     const input = url.trim();
-
-    // Detect input type: wallet address, tx hash, or Moltbook URL/text
     const isWallet = WALLET_RE.test(input);
     const isTxHash = TX_RE.test(input);
 
     let post;
-    let claims;
+    let claims: (ExtractedClaims & Record<string, unknown>) | null = null;
 
     if (isWallet) {
-      // Direct wallet verification: synthesize a post from the address
       post = {
         id: `wallet-${input.slice(0, 10)}`,
         url: `https://www.oklink.com/xlayer/address/${input}`,
@@ -49,9 +52,8 @@ export async function POST(req: NextRequest) {
         comments: 0,
         type: "buildx" as const,
       };
-      claims = { rawText: `Wallet: ${input}`, walletAddress: input } as ExtractedClaims & Record<string, unknown>;
+      claims = { rawText: `Wallet: ${input}`, walletAddress: input };
     } else if (isTxHash) {
-      // Direct tx verification: synthesize a post from the hash
       post = {
         id: `tx-${input.slice(0, 10)}`,
         url: `https://www.oklink.com/xlayer/tx/${input}`,
@@ -63,30 +65,39 @@ export async function POST(req: NextRequest) {
         comments: 0,
         type: "buildx" as const,
       };
-      claims = { rawText: `TX: ${input}`, transactionHash: input } as ExtractedClaims & Record<string, unknown>;
-    } else {
-      // Moltbook URL or freeform text
+      claims = { rawText: `TX: ${input}`, transactionHash: input };
+    } else if (isHttpUrl(input)) {
       post = await fetchPostFromUrl(input);
       if (!post) {
-        return NextResponse.json({ error: "Could not fetch post" }, { status: 404 });
+        return NextResponse.json({ error: "Could not fetch source content from the provided URL" }, { status: 502 });
       }
       claims = await extractClaims(post.content, useAI ?? false);
+    } else {
+      post = {
+        id: `text-${Date.now()}`,
+        url: "raw-text-input",
+        author: "Direct Text Check",
+        title: "Raw BuildX Text",
+        content: input,
+        timestamp: new Date().toISOString(),
+        likes: 0,
+        comments: 0,
+        type: "buildx" as const,
+      };
+      claims = await extractClaims(input, useAI ?? false);
     }
 
     if (!claims) {
       claims = await extractClaims(post.content, useAI ?? false);
     }
 
-    // Cast common fields for type safety
     const walletAddr = String(claims.walletAddress || "");
     const txCount = Number(claims.transactionCount || 0) || null;
     const contractAddr = String(claims.deployedContract || "");
     const txHash = String((claims as Record<string, unknown>).transactionHash || "");
 
-    // ── Real on chain verification ──
     const verifications: VerificationResult[] = [];
 
-    // Verify wallet
     if (walletAddr && WALLET_RE.test(walletAddr)) {
       try {
         const walletResult = await verifyWalletOnChain(walletAddr);
@@ -96,6 +107,7 @@ export async function POST(req: NextRequest) {
             status: "verified",
             detail: `Wallet exists with ${walletResult.txCount} transactions and ${walletResult.balanceFormatted} OKB balance`,
             source: `${XLAYER_EXPLORER}/address/${walletAddr}`,
+            evidence: { txCount: walletResult.txCount, balanceOkb: walletResult.balanceFormatted },
           });
         } else if (walletResult.exists) {
           verifications.push({
@@ -103,6 +115,7 @@ export async function POST(req: NextRequest) {
             status: "partial",
             detail: `Wallet exists on X Layer but has no transaction history (balance: ${walletResult.balanceFormatted} OKB)`,
             source: `${XLAYER_EXPLORER}/address/${walletAddr}`,
+            evidence: { txCount: walletResult.txCount, balanceOkb: walletResult.balanceFormatted },
           });
         } else {
           verifications.push({
@@ -120,7 +133,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Verify transaction count against wallet nonce
     if (walletAddr && WALLET_RE.test(walletAddr) && txCount) {
       try {
         const realTxCount = await getWalletTxSample(walletAddr);
@@ -131,18 +143,21 @@ export async function POST(req: NextRequest) {
               claim: `Transaction count (${txCount} claimed)`,
               status: "verified",
               detail: `Wallet nonce is ${realTxCount}, consistent with claimed ${txCount} transactions`,
+              evidence: { txCount: realTxCount },
             });
           } else if (ratio <= 5) {
             verifications.push({
               claim: `Transaction count (${txCount} claimed)`,
               status: "partial",
               detail: `Wallet nonce is ${realTxCount}, claimed ${txCount} is higher but within range (may include internal txs)`,
+              evidence: { txCount: realTxCount },
             });
           } else {
             verifications.push({
               claim: `Transaction count (${txCount} claimed)`,
               status: "contradicted",
               detail: `Wallet nonce is ${realTxCount} but post claims ${txCount} transactions`,
+              evidence: { txCount: realTxCount },
             });
           }
         } else {
@@ -150,14 +165,18 @@ export async function POST(req: NextRequest) {
             claim: `Transaction count (${txCount} claimed)`,
             status: "unverified",
             detail: "Wallet has no outgoing transactions on X Layer",
+            evidence: { txCount: 0 },
           });
         }
       } catch {
-        // Fall through, scorer will handle missing verification
+        verifications.push({
+          claim: `Transaction count (${txCount} claimed)`,
+          status: "unverified",
+          detail: "Could not independently verify transaction count",
+        });
       }
     }
 
-    // Verify deployed contract
     if (contractAddr && WALLET_RE.test(contractAddr)) {
       try {
         const contractResult = await verifyContractOnChain(contractAddr);
@@ -184,7 +203,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Verify transaction hash if provided
     if (txHash && TX_RE.test(txHash)) {
       try {
         const { verifyTransactionOnChain } = await import("@/lib/xlayerVerifier");
@@ -195,19 +213,10 @@ export async function POST(req: NextRequest) {
             status: "verified",
             detail: `Transaction confirmed in block ${txResult.blockNumber}, from ${txResult.from?.slice(0, 10)}... to ${txResult.to?.slice(0, 10) || "contract creation"}...`,
             source: `${XLAYER_EXPLORER}/tx/${txHash}`,
+            evidence: { blockNumber: txResult.blockNumber ?? 0 },
           });
-          // If we got a sender from the tx, also verify that wallet
           if (txResult.from && !walletAddr) {
             claims.walletAddress = txResult.from;
-            const walletResult = await verifyWalletOnChain(txResult.from);
-            if (walletResult.hasActivity) {
-              verifications.push({
-                claim: "Sender wallet on X Layer",
-                status: "verified",
-                detail: `Sender has ${walletResult.txCount} transactions and ${walletResult.balanceFormatted} OKB`,
-                source: `${XLAYER_EXPLORER}/address/${txResult.from}`,
-              });
-            }
           }
         } else if (txResult.exists) {
           verifications.push({
@@ -232,10 +241,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── OnchainOS skill evidence (okx-wallet-portfolio) ──
-    // When OKX credentials are set, read the wallet portfolio via OnchainOS
-    // and attach the response as first-hand evidence the agent integrates
-    // with OKX DEX/Wallet skills on X Layer.
     if (walletAddr && WALLET_RE.test(walletAddr) && hasOnchainOSCredentials()) {
       try {
         const snap = await getOnchainOSPortfolio(walletAddr);
@@ -245,23 +250,26 @@ export async function POST(req: NextRequest) {
             status: "verified",
             detail: `OKX Wallet Portfolio API returned ${snap.assets.length} assets, total value ~$${snap.totalValueUsd}`,
             source: `${XLAYER_EXPLORER}/address/${walletAddr}`,
+            evidence: { assetCount: snap.assets.length, totalValueUsd: snap.totalValueUsd },
           });
         } else if (snap) {
           verifications.push({
             claim: "OnchainOS wallet portfolio",
             status: "partial",
             detail: "OnchainOS responded but wallet has no tracked assets on X Layer",
+            evidence: { assetCount: 0, totalValueUsd: snap.totalValueUsd },
           });
         }
       } catch {
-        // Soft-fail: OnchainOS unavailable; scorer still works on claim text.
+        verifications.push({
+          claim: "OnchainOS wallet portfolio",
+          status: "unverified",
+          detail: "Could not verify OnchainOS wallet usage",
+        });
       }
     }
 
-    // Score with real verifications
     const scoreResult = calculateFlightScore(claims, verifications);
-
-    // AI analysis: generate detailed reasoning from the deterministic results
     const aiExplanation = await generateAIAnalysis({
       claims: claims as ExtractedClaims,
       verifications: scoreResult.results,
@@ -271,7 +279,6 @@ export async function POST(req: NextRequest) {
       postText: post.content,
     });
 
-    // Build report
     const reportId = generateReportId();
     const reportData = {
       id: reportId,
@@ -283,19 +290,20 @@ export async function POST(req: NextRequest) {
       flightScoreBreakdown: scoreResult.breakdown,
       explanation: aiExplanation || scoreResult.explanation,
       timestamp: new Date().toISOString(),
-      verifier: "XFlight BlackBox v0.1",
+      verifier: "XFlight BlackBox v0.2",
     };
     const reportHash = generateReportHash(reportData);
     const fullReport: XFlightReport = { ...reportData, reportHash };
 
-    // On chain attestation
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://xflight.vercel.app";
+    const proofUrl = buildProofUrl(baseUrl, fullReport);
+
     const contractAddress = process.env.XFLIGHT_CONTRACT_ADDRESS;
     const privateKey = process.env.ATTESTER_PRIVATE_KEY;
     let attestation: Record<string, unknown> = {};
 
     if (contractAddress && privateKey && contractAddress.length === 42) {
-      const reportURI = `${process.env.NEXT_PUBLIC_BASE_URL || "https://xflight.vercel.app"}/proof/${reportId}`;
-      const result = await attestReport(reportId, reportHash, scoreResult.score, reportURI, contractAddress, privateKey);
+      const result = await attestReport(reportId, reportHash, scoreResult.score, proofUrl, contractAddress, privateKey);
       if (result.success) {
         fullReport.txHash = result.txHash;
         fullReport.blockNumber = result.blockNumber;
@@ -323,12 +331,13 @@ export async function POST(req: NextRequest) {
       claims,
       verificationResults: scoreResult.results,
       attestation,
-      onchainos: describeOnchainOSUsage(),
-      explorerUrl: fullReport.txHash ? `${XLAYER_EXPLORER}/tx/${fullReport.txHash}` : null,
-      proofUrl: `/proof/${reportId}`,
+      explorerUrl: attestation.explorerUrl,
+      proofUrl,
     });
   } catch (err) {
-    console.error("[/api/verify] Error:", err);
-    return NextResponse.json({ error: "Verification failed", detail: String(err) }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Verification failed" },
+      { status: 500 }
+    );
   }
 }

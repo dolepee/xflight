@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { buildProofUrl } from "@/lib/reportCodec";
 import { getReport, saveReport } from "@/lib/reportStore";
 import { attestReport } from "@/lib/attestation";
 import { XLAYER_EXPLORER } from "@/lib/chains";
@@ -36,7 +37,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Contract not deployed. Run: npm run deploy" }, { status: 503 });
     }
 
-    const reportURI = `${process.env.NEXT_PUBLIC_BASE_URL || "https://xflight.vercel.app"}/proof/${reportId}`;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://xflight.vercel.app";
+    const reportURI = buildProofUrl(baseUrl, report);
     const result = await attestReport(reportId, report.reportHash, report.score, reportURI, contractAddress, privateKey);
 
     if (result.success) {
@@ -49,6 +51,7 @@ export async function POST(req: NextRequest) {
         txHash: result.txHash,
         blockNumber: result.blockNumber,
         explorerUrl: `${XLAYER_EXPLORER}/tx/${result.txHash}`,
+        proofUrl: reportURI,
       });
     }
 

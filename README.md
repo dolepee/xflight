@@ -1,306 +1,155 @@
 # XFlight BlackBox
 
-**Agent Proof Court for X Layer** â€” the verification layer for autonomous agents on OKX's X Layer.
+XFlight is a verification layer for autonomous agents on X Layer.
 
-XFlight extracts claims from a Moltbook BuildX post (or a raw wallet / tx hash), checks them against live X Layer on-chain data, routes DEX and wallet lookups through OKX OnchainOS skills + Uniswap V3, scores the result on a transparent 0â€“100 Flight Score, and attests the report on-chain from an autonomous Agentic Wallet.
+It takes a Build X claim source such as a Moltbook post, wallet address, transaction hash, or freeform project text, extracts concrete claims, verifies them against live X Layer and OKX OnchainOS data, produces a deterministic Flight Score, and attests the report onchain through an authorized agentic wallet.
 
-**Live:** [xflight.vercel.app](https://xflight.vercel.app)
+Live app: https://xflight.vercel.app
 
----
+## Why this exists
 
-## Built for OKX Build X Hackathon
+Build X submissions make claims about:
+- wallet ownership
+- transaction count
+- contract deployment
+- OnchainOS usage
+- PnL and execution history
 
-XFlight is a human-track submission for the [OKX Build X Hackathon](https://x.com/XLayerOfficial). It satisfies both mandatory requirements:
+Most of those claims are easy to post and hard to verify quickly. XFlight turns them into a repeatable verification flow with an evidence trail, a score breakdown, and an onchain attestation.
+
+## OKX Build X fit
+
+XFlight is designed for the OKX Build X Hackathon and satisfies the core X Layer expectations:
 
 | Requirement | How XFlight satisfies it |
 |---|---|
-| **Agentic Wallet** (mandatory) | `ATTESTER_PRIVATE_KEY` drives the autonomous signer [`0xd27F3E042E00c210b0bD2808431B472d4eD6A963`](https://www.oklink.com/xlayer/address/0xd27F3E042E00c210b0bD2808431B472d4eD6A963). Every verification report is signed and written to X Layer by this wallet with no human hand in the loop. Exposed at `GET /api/agentic-wallet`. |
-| **OnchainOS / Uniswap Skills** (mandatory) | `lib/onchainos.ts` wraps the OKX DEX Aggregator (`okx-dex-swap`) and Wallet Portfolio (`okx-wallet-portfolio`) APIs with HMAC-signed calls. `/api/quote` prefers OnchainOS then falls back to Uniswap V3 QuoterV2 on X Layer. `/api/portfolio` reads multi-asset balances via OnchainOS. Evidence from these skills flows into the Flight Score. |
-| **Deployed on X Layer** | `XFlightRecorder` at [`0xb5d3A62aDfB3fa33FE665558F95B987D0502d4c1`](https://www.oklink.com/xlayer/address/0xb5d3A62aDfB3fa33FE665558F95B987D0502d4c1) (chain 196). Deploy tx [`0x1e3b6bdeâ€¦`](https://www.oklink.com/xlayer/tx/0x1e3b6bde038a68ea698e5707a89d685f2b7b785ca4583c9e5cf23d464c789dd4). |
+| Agentic Wallet | `ATTESTER_PRIVATE_KEY` controls the autonomous attester wallet exposed at `GET /api/agentic-wallet`. |
+| OnchainOS / Uniswap skills | `lib/onchainos.ts` integrates OKX DEX Aggregator and Wallet Portfolio APIs; `/api/quote` falls back to Uniswap V3 quote discovery when needed. |
+| X Layer deployment | `XFlightRecorder` is deployed on X Layer and stores plan, execution, and report attestations. |
 
----
+## Core flow
 
-## The Agentic Wallet
+1. Input a Moltbook URL, wallet address, transaction hash, or freeform text.
+2. Extract structured claims such as wallet, tx count, contract, links, and claimed tool usage.
+3. Verify those claims against X Layer RPC and OnchainOS responses.
+4. Score the evidence with a deterministic 0-100 Flight Score.
+5. Build a proof card.
+6. Optionally attest the report on X Layer through the authorized attester wallet.
 
-The same key that signs `XFlightRecorder.attestReport()` is XFlight's onchain identity. It is:
+## Trust model
 
-- **Autonomous** â€” no human signature needed to produce a report; the wallet fires when a verification run completes.
-- **Auditable** â€” every attestation is a public X Layer tx, and every report URI is pinned in calldata.
-- **Single-actor** â€” all XFlight reports trace to one address; faking a report requires compromising that key.
+The main trust guarantees are:
+- only authorized attesters can write to `XFlightRecorder`
+- report hashes are validated before stored reports are served
+- proof links include a tokenized report payload so they remain recoverable even if local storage is ephemeral
+- sample Moltbook posts are opt-in only via `ALLOW_SAMPLE_POSTS=true`; production verification hard-fails on fetch failure
+- the score is deterministic; AI is used for extraction and explanation, not scoring
 
-```bash
-curl https://xflight.vercel.app/api/agentic-wallet
-```
+## Contract
 
-```json
-{
-  "address": "0xd27F3E042E00c210b0bD2808431B472d4eD6A963",
-  "chain": "X Layer",
-  "chainId": 196,
-  "balanceFormatted": "â€¦OKB",
-  "nonce": 0,
-  "role": "XFlight verification attester",
-  "skills": [
-    "okx-agentic-wallet",
-    "okx-dex-swap",
-    "okx-wallet-portfolio",
-    "xflight.attest_report",
-    "xflight.verify_wallet",
-    "xflight.verify_tx"
-  ],
-  "contract": "0xb5d3A62aDfB3fa33FE665558F95B987D0502d4c1"
-}
-```
+`contracts/XFlightRecorder.sol`
 
----
+Functions:
+- `commitPlan(bytes32 actionId, bytes32 planHash, string metadataURI)`
+- `recordExecution(bytes32 actionId, bytes32 txHash, bytes32 observedHash)`
+- `attestReport(bytes32 reportId, bytes32 reportHash, uint8 verdict, uint16 flightScore, string reportURI)`
 
-## OnchainOS + Uniswap Integration
+Important:
+- writes are restricted to authorized attesters
+- owner can rotate or revoke attesters
 
-XFlight speaks three DEX surfaces, ordered by fidelity:
+## App surface
 
-1. **OKX DEX Aggregator (OnchainOS)** â€” `lib/onchainos.ts::getOnchainOSQuote`. HMAC-signed v5 request to `https://web3.okx.com/api/v5/dex/aggregator/quote`. Active when `OKX_API_KEY` / `OKX_SECRET_KEY` / `OKX_PASSPHRASE` are configured.
-2. **Uniswap V3 QuoterV2** â€” `lib/dexQuote.ts::getUniswapQuote`. Direct `eth_call` to the canonical QuoterV2 at `0x61fFE014bA17989E743c5F6cB21bF9697530B21e` across 0.3%/0.05%/1% fee tiers on X Layer.
-3. **Deterministic estimate** â€” price-anchored fallback so the `/api/quote` contract is always honored.
+API routes:
+- `/api/verify` - extract claims, verify, score, build proof, optionally attest
+- `/api/attest` - attest an existing report
+- `/api/proof/[id]` - fetch a stored or tokenized proof report
+- `/api/wallet` - wallet verification on X Layer
+- `/api/tx` - transaction verification on X Layer
+- `/api/quote` - OKX quote first, Uniswap fallback second
+- `/api/portfolio` - OnchainOS wallet portfolio
+- `/api/agentic-wallet` - public attester wallet status
 
-The OnchainOS wallet surface:
-
-- `lib/onchainos.ts::getOnchainOSPortfolio` â€” signed call against `okx-wallet-portfolio` returning tokenized balances + USD total.
-- `/api/portfolio` exposes this to agents.
-- `/api/verify` enriches its report with a "OnchainOS wallet portfolio" verification line when the portfolio API returns assets, feeding the **OnchainOS / Uniswap Evidence** scoring bucket.
-
-Skill packages this project is compatible with:
-
-```bash
-npx skills add okx/onchainos-skills    # okx-agentic-wallet, okx-dex-swap, okx-wallet-portfolio, okx-dex-token, â€¦
-npx skills add Uniswap/uniswap-ai      # uniswap-ai skill
-```
-
----
-
-## Quick Start
-
-```bash
-# 1. Clone and install
-git clone https://github.com/dolepee/xflight.git
-cd xflight
-npm install
-
-# 2. Configure environment
-cp .env.example .env.local
-# Fill in:
-#   ATTESTER_PRIVATE_KEY     â€” Agentic Wallet key (generated by npm run deploy if missing)
-#   XFLIGHT_CONTRACT_ADDRESS â€” set after npm run deploy
-#   DGRID_API_KEY            â€” DGrid AI gateway (GPT-4o) for claim extraction / analysis
-#   OKX_API_KEY / SECRET / PASSPHRASE â€” optional; enables live OnchainOS calls
-#                              https://web3.okx.com/onchainos/dev-portal
-
-# 3. Deploy the attestation contract (generates a wallet if none exists)
-npm run deploy
-
-# 4. Run the app
-npm run dev
-```
-
----
-
-## Architecture
-
-```
-xflight/
-â”œâ”€â”€ app/
-â”‚   â”œâ”€â”€ api/
-â”‚   â”‚   â”œâ”€â”€ verify/route.ts          Claim extraction + X Layer verification + attestation
-â”‚   â”‚   â”œâ”€â”€ attest/route.ts          On-chain attestation endpoint
-â”‚   â”‚   â”œâ”€â”€ wallet/route.ts          Wallet verification via X Layer RPC
-â”‚   â”‚   â”œâ”€â”€ tx/route.ts              Transaction verification via X Layer RPC
-â”‚   â”‚   â”œâ”€â”€ quote/route.ts           OKX DEX Aggregator â†’ Uniswap V3 fallback
-â”‚   â”‚   â”œâ”€â”€ portfolio/route.ts       OKX Wallet Portfolio (OnchainOS)
-â”‚   â”‚   â”œâ”€â”€ agentic-wallet/route.ts  Agentic Wallet status (public)
-â”‚   â”‚   â”œâ”€â”€ proof/[id]/route.ts      Fetch proof report by ID
-â”‚   â”‚   â””â”€â”€ posts/route.ts           BuildX post feed
-â”‚   â”œâ”€â”€ verify/page.tsx              Verification UI
-â”‚   â”œâ”€â”€ preflight/page.tsx           Preflight / postflight checks
-â”‚   â”œâ”€â”€ proof/[id]/page.tsx          Shareable proof card
-â”‚   â””â”€â”€ skill/page.tsx               Skill documentation
-â”œâ”€â”€ lib/
-â”‚   â”œâ”€â”€ agenticWallet.ts             Autonomous signer (public surface)
-â”‚   â”œâ”€â”€ onchainos.ts                 OKX DEX + Wallet (HMAC-signed)
-â”‚   â”œâ”€â”€ dexQuote.ts                  Uniswap V3 QuoterV2 on X Layer
-â”‚   â”œâ”€â”€ xlayerVerifier.ts            RPC-level wallet / tx / contract checks
-â”‚   â”œâ”€â”€ moltbook.ts                  Moltbook BuildX post client
-â”‚   â”œâ”€â”€ claims.ts                    AI (DGrid GPT-4o) + regex claim extraction
-â”‚   â”œâ”€â”€ aiAnalysis.ts                DGrid GPT-4o verification analyst
-â”‚   â”œâ”€â”€ flightScorer.ts              Deterministic 0â€“100 scorer
-â”‚   â”œâ”€â”€ reportStore.ts               Report persistence
-â”‚   â”œâ”€â”€ attestation.ts               XFlightRecorder writer
-â”‚   â””â”€â”€ chains.ts                    X Layer chain config
-â”œâ”€â”€ contracts/
-â”‚   â””â”€â”€ XFlightRecorder.sol          On-chain attestation contract
-â”œâ”€â”€ scripts/
-â”‚   â””â”€â”€ deploy.ts                    Deploy + wallet-bootstrap
-â””â”€â”€ xflight-skill/
-    â”œâ”€â”€ SKILL.md                     OpenClaw skill manifest
-    â”œâ”€â”€ README.md                    Skill docs
-    â””â”€â”€ src/index.ts                 Skill wrapper
-```
-
----
-
-## X Layer Deployment
-
-| Item | Value |
-|------|-------|
-| Chain | X Layer Mainnet |
-| Chain ID | 196 |
-| RPC | https://rpc.xlayer.tech |
-| Explorer | https://www.oklink.com/xlayer |
-| XFlightRecorder | [`0xb5d3A62aDfB3fa33FE665558F95B987D0502d4c1`](https://www.oklink.com/xlayer/address/0xb5d3A62aDfB3fa33FE665558F95B987D0502d4c1) |
-| Deploy TX | [`0x1e3b6bdeâ€¦`](https://www.oklink.com/xlayer/tx/0x1e3b6bde038a68ea698e5707a89d685f2b7b785ca4583c9e5cf23d464c789dd4) |
-| Agentic Wallet | [`0xd27F3E042E00c210b0bD2808431B472d4eD6A963`](https://www.oklink.com/xlayer/address/0xd27F3E042E00c210b0bD2808431B472d4eD6A963) |
-| Live App | [xflight.vercel.app](https://xflight.vercel.app) |
-
-### Contract functions
-
-| Function | Purpose |
-|---|---|
-| `commitPlan(bytes32 actionId, bytes32 planHash, string metadataURI)` | Commit a preflight plan hash |
-| `recordExecution(bytes32 actionId, bytes32 txHash, bytes32 observedHash)` | Record execution result |
-| `attestReport(bytes32 reportId, bytes32 reportHash, uint8 verdict, uint16 flightScore, string reportURI)` | Attest a verification report (authorized attesters only) |
-
----
-
-## Demo
-
-### A. Moltbook BuildX Claim Verifier
-
-1. Open the app, go to **Verify**
-2. Paste a Moltbook BuildX URL, or directly paste a `0xâ€¦` wallet / tx hash
-3. XFlight extracts claims: agent name, wallet, tx count, PnL, contracts, links
-4. XFlight verifies each claim against X Layer (RPC) and OnchainOS (OKX DEX + Wallet)
-5. A Flight Score (0â€“100) is computed with a full category breakdown
-6. The Agentic Wallet attests the report on X Layer via `XFlightRecorder.attestReport()`
-7. Share the proof card URL; tokenized proof links remain recoverable even if local storage is ephemeral, and the on-chain tx is the audit trail
-
-### B. Preflight / Postflight
-
-1. Go to **Preflight**
-2. Enter an agent action + wallet
-3. XFlight checks wallet balance, activity, contract status (live RPC)
-4. After execution, paste the tx hash for postflight verification
-5. XFlight confirms existence, sender, and block status
-
-### C. OnchainOS DEX quote
-
-```bash
-curl -X POST https://xflight.vercel.app/api/quote \
-  -H "Content-Type: application/json" \
-  -d '{"action": "Swap 0.1 OKB to USDC on X Layer"}'
-```
-
-Returns the best OKX-aggregated route when `OKX_*` is configured, otherwise a live Uniswap V3 QuoterV2 quote.
-
----
+Pages:
+- `/verify` - verification UI
+- `/proof/[id]` - shareable proof card
+- `/preflight` - preflight / postflight explorer
+- `/skill` - skill documentation
 
 ## Flight Score
 
-Transparent 0â€“100 score with explainable breakdown:
+Flight Score is deterministic and capped at 100.
 
-| Score | Verdict |
-|---|---|
-| 85â€“100 | Strongly Verified |
-| 70â€“84  | Mostly Verified |
-| 50â€“69  | Partially Verified |
-| 25â€“49  | Weak Proof |
-| 0â€“24   | Unverified |
+Buckets:
+- X Layer Proof (30)
+- Claim Consistency (20)
+- OnchainOS / Uniswap Evidence (15)
+- Execution Continuity (15)
+- Proof Completeness (10)
+- Risk Hygiene (10)
 
-**Scoring (100 pts total):**
+Verdicts:
+- 85-100: `strongly_verified`
+- 70-84: `mostly_verified`
+- 50-69: `partially_verified`
+- 25-49: `weak_proof`
+- 0-24: `unverified`
 
-- **X Layer Proof (30 pts)** â€” wallet, txs, contract verified on-chain
-- **Claim Consistency (20 pts)** â€” wallet / contract / chain format & match
-- **OnchainOS / Uniswap Evidence (15 pts)** â€” live OKX DEX / Wallet responses, Uniswap references, text claims
-- **Execution Continuity (15 pts)** â€” wallet nonce and sustained tx history
-- **Proof Completeness (10 pts)** â€” GitHub, demo URL, PnL
-- **Risk Hygiene (10 pts)** â€” contradictions, unrealistic PnL, missing identifiers
+Scoring is intentionally conservative after the audit hardening pass. Keyword mentions alone should not score highly.
 
-Scoring is fully deterministic. AI is used only for claim extraction and for the written analyst summary â€” it never changes the score.
+## Quick start
 
----
-
-## xflight-skill (Skills Arena)
-
-```typescript
-import { xflight } from 'xflight-skill';
-
-xflight.configure({
-  apiUrl: "https://xflight.vercel.app",
-  rpcUrl: "https://rpc.xlayer.tech",
-});
-
-const result = await xflight.verify_moltbook_post({ url: "https://www.moltbook.com/posts/abc123" });
-const wallet = await xflight.verify_wallet({ address: "0xâ€¦" });
-const tx = await xflight.verify_tx({ txHash: "0xâ€¦" });
-await xflight.attest_report({ reportId: result.reportId });
+```bash
+git clone https://github.com/dolepee/xflight.git
+cd xflight
+npm install
+cp .env.example .env.local
+npm run deploy
+npm run dev
 ```
 
-| Command | Description |
-|---|---|
-| `xflight.verify_moltbook_post({ url })` | Extract claims, verify, score |
-| `xflight.verify_tx({ txHash })` | Verify a tx on X Layer |
-| `xflight.verify_wallet({ address })` | Balance, nonce, activity |
-| `xflight.generate_proof_card({ reportId })` | Shareable proof card |
-| `xflight.attest_report({ reportId })` | Write to XFlightRecorder on X Layer |
+Useful env vars:
+- `ATTESTER_PRIVATE_KEY`
+- `XFLIGHT_CONTRACT_ADDRESS`
+- `XLAYER_RPC_URL`
+- `DGRID_API_KEY`
+- `OKX_API_KEY`
+- `OKX_SECRET_KEY`
+- `OKX_PASSPHRASE`
+- `ALLOW_SAMPLE_POSTS=true` only for offline demos
 
----
+## Local verification
 
-## On-Chain Verification
+```bash
+npm test
+npm run build
+npm run lint
+```
 
-All verification is deterministic and uses real X Layer data:
+## Skill package
 
-- **Wallet check** â€” `eth_getBalance`, `eth_getTransactionCount`, `eth_getCode`
-- **Transaction check** â€” `eth_getTransactionReceipt` (status, sender, block)
-- **Contract check** â€” `eth_getCode` (bytecode presence)
-- **DEX quote** â€” OKX DEX Aggregator (signed) â†’ Uniswap V3 QuoterV2 (`quoteExactInputSingle`)
-- **Portfolio** â€” OKX Wallet Portfolio (signed) â†’ native-balance fallback
-- **Attestation** â€” Agentic Wallet â†’ `XFlightRecorder.attestReport()` on X Layer
+The repo also includes `xflight-skill`, a thin agent wrapper over the web API.
 
-AI (DGrid GPT-4o) is confined to claim extraction from free text and producing a written analyst summary. It never touches the score.
+Main commands:
+- `xflight.verify_moltbook_post`
+- `xflight.verify_tx`
+- `xflight.verify_wallet`
+- `xflight.generate_proof_card`
+- `xflight.attest_report`
 
----
+## Demo framing
 
-## Positioning
+The best demo story is:
+- verify a claim source
+- show extracted claims and contradictory evidence if present
+- open the proof card
+- show onchain attestation from the authorized agentic wallet
+- emphasize that XFlight is the accountability layer, not another trading bot
 
-> "Agents should not just act. They should leave a flight recorder."
+## Repository
 
-While other Build X entries are shipping trading bots and strategy engines, XFlight is the neutral verification layer underneath them. It answers the questions judges and builders keep asking:
-
-- Can we verify it?
-- Where is the tx?
-- Does the wallet match?
-- Does the chain match?
-- Is the PnL independently provable?
-- Is there a reusable proof trail?
-
-XFlight makes every agent claim on X Layer auditable in one URL.
-
----
-
-## Submission
-
-- **Track:** Human Track
-- **Chain:** X Layer (chain 196)
-- **App:** [xflight.vercel.app](https://xflight.vercel.app)
-- **Repo:** [github.com/dolepee/xflight](https://github.com/dolepee/xflight)
-- **Tag:** `#XLayerHackathon` Â· `@XLayerOfficial`
-
----
-
-## Team
-
-**XFlight BlackBox**
-
-- Iyanda Abdulqodir (Qdee) â€” [@akinpelumrs](https://x.com/akinpelumrs)
-
----
+- App: https://xflight.vercel.app
+- Repo: https://github.com/dolepee/xflight
 
 ## License
 

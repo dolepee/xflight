@@ -1,147 +1,79 @@
 # XFlight Demo Script
 
-**Target length:** 90-120 seconds
-**Target audience:** Hackathon judges, builders
+Target length: 90-120 seconds
+Target audience: Build X judges and builders
 
-## Pre-recording Setup
+## Setup
 
-1. Open terminal in `/home/qdee/xflight`
-2. Ensure wallet is funded: `npm run deploy` (if funded)
-3. Start dev server: `npm run dev`
-4. Open browser at `http://localhost:3000`
-5. Ensure contract is deployed and `XFLIGHT_CONTRACT_ADDRESS` is set in `.env.local`
+1. Run `npm run deploy` if the contract or wallet is not ready.
+2. Run `npm run dev`.
+3. Open `http://localhost:3000`.
+4. Confirm `.env.local` has the attester key and contract address.
+5. If you need an offline demo, set `ALLOW_SAMPLE_POSTS=true` before starting the app.
 
----
+## Demo flow
 
-## Recording Script
+### 1. Problem
 
-### Scene 1: The Problem (0:00 - 0:15)
+Voiceover:
+"Build X claims are easy to post and hard to verify. Wallets, tx counts, contracts, tool usage, and even PnL are often presented without evidence."
 
-> **VOICEOVER / ON-SCREEN TEXT:**
-> 
-> "The BuildX field is noisy. Every post claims:
-> - I traded successfully
-> - I profited $12,000
-> - I used OnchainOS
-> - I deployed a contract
-> 
-> But how do you verify any of it?"
+Action:
+Show the homepage and then move into `/verify`.
 
-**Action:** Show Moltbook BuildX feed (if available) or screenshot of noisy posts.
+### 2. Verification run
 
----
+Voiceover:
+"XFlight turns one noisy claim source into a deterministic verification report."
 
-### Scene 2: XFlight Dashboard (0:15 - 0:25)
+Action:
+Paste one of:
+- a real Moltbook post URL
+- a wallet address
+- a transaction hash
+- freeform project text
 
-**Action:** Pan across the XFlight dashboard at `http://localhost:3000`
+Click `Verify`.
 
-> "XFlight is the proof layer for autonomous X Layer agents."
+### 3. Explain the result
 
-**Action:** Click through Dashboard â†’ Verify â†’ Preflight â†’ xflight-skill tabs quickly.
+Voiceover:
+"The app extracts concrete claims, checks them against X Layer and OnchainOS, and scores only what is actually evidenced."
 
----
+Action:
+Show:
+- score and verdict
+- verification rows
+- extracted claims
+- score breakdown
+- report hash
 
-### Scene 3: Verify Flow (0:25 - 0:50)
+### 4. Proof card
 
-**Action:** Go to `/verify` tab.
+Voiceover:
+"Every run gets a shareable proof card. The proof URL carries a tokenized report payload, so it can still be recovered even if local storage is ephemeral."
 
-> "Let's verify a BuildX post. Paste the URL..."
-> 
-> "Paste: `https://www.moltbook.com/posts/sample-001`"
-> 
-> Click **Verify**
+Action:
+Open the proof card.
 
-**Action:** Show the results appearing:
-- Score: 96/100 (Strongly Verified)
-- Claims extracted: wallet, txs, PnL, GitHub, contract
-- Breakdown bars showing each scoring category
-- Report Hash
-- Proof Card link
+### 5. Onchain attestation
 
-> "XFlight extracts every claim â€” wallet address, transaction count, claimed PnL, GitHub repo, deployed contract â€” and scores them."
+Voiceover:
+"An authorized agentic wallet can attest the report on X Layer."
 
----
+Action:
+Show:
+- attestation status
+- explorer link
+- contract address
 
-### Scene 4: Proof Card (0:50 - 1:00)
+### 6. Close
 
-**Action:** Click "View full proof card â†’" to go to `/proof/[id]`
+Voiceover:
+"Agents should not just act. They should leave a flight recorder. XFlight is the accountability layer for autonomous agents on X Layer."
 
-> "Here's the shareable proof card. Every claim is laid out with verification status."
+## Important notes
 
-**Action:** Scroll through the proof card showing score, verdict, breakdown, claims.
-
----
-
-### Scene 5: On-Chain Attestation (1:00 - 1:10)
-
-**Action:** Scroll to the attestation section.
-
-> "And here's the real power: the report hash is written to X Layer via XFlightRecorder."
-> 
-> "This attestation is permanent and verifiable by anyone on the explorer."
-
-**Action:** Show the OKLink explorer link if attestation succeeded.
-
----
-
-### Scene 6: Preflight (1:10 - 1:25)
-
-**Action:** Go to `/preflight` tab.
-
-> "Agents can also run preflight checks before executing â€” planning routes, checking slippage, and committing plan hashes on-chain."
-
-**Action:** Enter "Swap 0.1 OKB to USDC on X Layer" and a wallet address, click Run Preflight.
-
-**Action:** Show the plan hash generated, then click "Commit Plan Hash to X Layer".
-
----
-
-### Scene 7: xflight-skill (1:25 - 1:40)
-
-**Action:** Go to `/skill` tab.
-
-> "And for agents that want to verify each other, there's the xflight-skill â€” callable from any OpenClaw agent."
-
-**Action:** Show the skill commands and code example.
-
-> "xflight.verify_moltbook_post, xflight.verify_tx, xflight.attest_report â€” all available as simple API calls."
-
----
-
-### Scene 8: Closing (1:40 - 1:50)
-
-**Action:** Return to dashboard.
-
-> "Agents should not just act. They should leave a flight recorder."
-> 
-> "XFlight â€” proof court for X Layer."
-> 
-> "Check the README for deployment instructions. The contract is live."
-
-**Action:** Show the contract address on-screen if deployed, or show `npm run deploy` command.
-
----
-
-## Post-Recording
-
-1. Export as MP4 (H.264, 1080p preferred)
-2. Upload to YouTube or equivalent
-3. Post link with hashtags:
-   - `#XLayerHackathon`
-   - `#XLayer`
-   - `#OnchainOS`
-   - `#BuildX`
-
-## Demo Without On-Chain Attestation
-
-If the contract isn't deployed yet, the demo still works. In Scene 5, show:
-
-> "On-chain attestation shows 'pending' â€” the contract is ready to deploy. Once funded, the report hash will be written permanently to X Layer."
-
-The full UI, claim extraction, scoring, and proof card all work without on-chain deployment.
-
----
-
-## Fallback: Using Sample Data
-
-If Moltbook API is unreachable, the app falls back to cached sample posts. The demo works identically â€” claims are still extracted and scored. Just paste the sample post URL shown in the UI.
+- Production mode does not silently fall back to sample Moltbook data.
+- Offline sample posts are opt-in only with `ALLOW_SAMPLE_POSTS=true`.
+- If attestation is unavailable, the verification flow still works, but the report remains unattested.

@@ -9,6 +9,7 @@ export const ClaimSchema = z.object({
   onchainosUsed: z.boolean().nullish(),
   uniswapUsed: z.boolean().nullish(),
   deployedContract: z.string().nullish(),
+  transactionHash: z.string().nullish(),
   githubUrl: z.string().nullish(),
   liveDemoUrl: z.string().nullish(),
   otherSkills: z.array(z.string()).nullish(),
@@ -18,11 +19,12 @@ export const ClaimSchema = z.object({
 
 export type ExtractedClaims = z.infer<typeof ClaimSchema>;
 
-const WALLET_REGEX = /0x[a-fA-F0-9]{40}/g;
+const WALLET_REGEX = /\b0x[a-fA-F0-9]{40}\b/g;
 const TX_COUNT_REGEX = /(\d+)\+?\s*(?:successful\s+)?(?:swap|trade|tx|transaction)/gi;
-const PNL_REGEX = /\$?([\d,]+(?:\.\d+)?)\s*(?:USD|\$|USDC|USDT|OKB)?/gi;
+const PNL_REGEX = /(?:\$\s*([\d,]+(?:\.\d+)?))|(?:\b([\d,]+(?:\.\d+)?)\s+(?:USD|USDC|USDT|OKB)\b)/gi;
 const GITHUB_REGEX = /https?:\/\/github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+/gi;
-const CONTRACT_REGEX = /0x[a-fA-F0-9]{40}/g;
+const CONTRACT_REGEX = /\b0x[a-fA-F0-9]{40}\b/g;
+const TX_HASH_REGEX = /\b0x[a-fA-F0-9]{64}\b/g;
 const DEMO_URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
 const ONCHAINOS_KEYWORDS = ["onchainos", "onchain os", "okx wallet api", "okx dex api", "onchainos dev portal"];
 const UNISWAP_KEYWORDS = ["uniswap", "uniswapx", "uniswap v2", "uniswap v3", "uniswap v4"];
@@ -56,7 +58,8 @@ async function extractClaimsAI(text: string): Promise<ExtractedClaims> {
 - pnlCurrency: string | null
 - onchainosUsed: boolean
 - uniswapUsed: boolean
-- deployedContract: string (0x...) | null
+- deployedContract: string (0x... 40 hex, contract only) | null
+- transactionHash: string (0x... 64 hex) | null
 - githubUrl: string | null
 - liveDemoUrl: string | null
 - deploymentChain: string | null
@@ -80,7 +83,10 @@ ${text.slice(0, 2000)}`;
 
 function extractClaimsFallback(text: string): ExtractedClaims {
   const wallets = text.match(WALLET_REGEX) || [];
-  const contracts = text.match(CONTRACT_REGEX) || [];
+  const allAddrs = text.match(CONTRACT_REGEX) || [];
+  const walletAddr = wallets[0] || null;
+  const contracts = allAddrs.filter((a) => a.toLowerCase() !== (walletAddr || "").toLowerCase());
+  const txHashes = text.match(TX_HASH_REGEX) || [];
   const githubMatches = text.match(GITHUB_REGEX) || [];
   const demoMatches = text.match(DEMO_URL_REGEX) || [];
 
@@ -92,8 +98,9 @@ function extractClaimsFallback(text: string): ExtractedClaims {
 
   const pnlMatches = text.match(PNL_REGEX) || [];
   const maxPnl = pnlMatches.reduce((max, m) => {
-    const n = parseFloat(m.replace(/[$,]/g, ""));
-    return n > max ? n : max;
+    const cleaned = m.replace(/[$,]/g, "").replace(/\s*(?:USD|USDC|USDT|OKB)\b/gi, "").trim();
+    const n = parseFloat(cleaned);
+    return (isFinite(n) && n > max) ? n : max;
   }, 0);
 
   const lowerText = text.toLowerCase();
@@ -111,13 +118,14 @@ function extractClaimsFallback(text: string): ExtractedClaims {
 
   return ClaimSchema.parse({
     agentName,
-    walletAddress: wallets[0] || null,
+    walletAddress: walletAddr,
     transactionCount: maxTxCount || null,
     claimedPnl: maxPnl || null,
     pnlCurrency: maxPnl ? "USD" : null,
     onchainosUsed,
     uniswapUsed,
     deployedContract: contracts[0] || null,
+    transactionHash: txHashes[0] || null,
     githubUrl,
     liveDemoUrl,
     deploymentChain,

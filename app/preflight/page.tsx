@@ -330,7 +330,7 @@ export default function PreflightPage() {
                   { label: "Input", value: `${result.quote.amountIn} ${result.quote.fromToken}` },
                   { label: "Expected Output", value: `${result.quote.amountOutFormatted} ${result.quote.toToken}` },
                   { label: "Slippage", value: result.quote.slippage },
-                  { label: "Fee Tier", value: `${result.quote.feeTier / 10000}%` },
+                  { label: "Fee Tier", value: result.quote.feeTier && Number.isFinite(result.quote.feeTier) ? `${result.quote.feeTier / 10000}%` : "aggregated" },
                   { label: "Gas Estimate", value: result.quote.gasEstimate },
                   { label: "Plan Hash", value: result.planHash, mono: true },
                 ].map((row) => (

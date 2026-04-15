@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 
 import { join } from "path";
 import { decodeReportToken, stableStringify } from "./reportCodec";
 
-const DATA_DIR = process.env.XFLIGHT_REPORTS_DIR || join(process.cwd(), "data", "reports");
+const DATA_DIR = process.env.XFLIGHT_REPORTS_DIR || (process.env.VERCEL ? "/tmp/xflight-reports" : join(process.cwd(), "data", "reports"));
 
 function ensureDir() {
   if (!existsSync(DATA_DIR)) {

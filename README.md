@@ -137,14 +137,6 @@ Main commands:
 - `xflight.generate_proof_card`
 - `xflight.attest_report`
 
-## Demo framing
-
-The best demo story is:
-- verify a claim source
-- show extracted claims and contradictory evidence if present
-- open the proof card
-- show onchain attestation from the authorized agentic wallet
-- emphasize that XFlight is the accountability layer, not another trading bot
 
 ## Repository
 

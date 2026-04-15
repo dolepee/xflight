@@ -1,8 +1,8 @@
-# xflight-skill
+﻿# xflight-skill
 
-**Reusable proof verification skill for autonomous agents on X Layer.**
+Reusable proof-verification skill for autonomous agents on X Layer.
 
-Part of the XFlight BlackBox project. This skill exposes the XFlight verification engine as agent-callable commands for OpenClaw / OnchainOS.
+Part of the XFlight BlackBox project. This package exposes the XFlight verification engine as agent-callable commands for OpenClaw / OnchainOS.
 
 ## Quick Start
 
@@ -11,29 +11,26 @@ npm install xflight-skill
 ```
 
 ```typescript
-import { xflight } from 'xflight-skill';
+import { xflight } from "xflight-skill";
 
-// Verify a Moltbook BuildX post
-const result = await xflight.verifyMoltbookPost({
-  url: "https://www.moltbook.com/posts/abc123"
+const result = await xflight.verify_moltbook_post({
+  url: "https://www.moltbook.com/posts/abc123",
 });
 
-// Check the Flight Score
-console.log(result.score);       // 0-100
-console.log(result.verdict);     // strongly_verified | mostly_verified | ...
-console.log(result.proofUrl);    // Shareable proof card URL
+console.log(result.score);
+console.log(result.verdict);
+console.log(result.proofUrl);
 
-// Attest on X Layer
-await xflight.attest_report({ reportId: result.reportId });
+await xflight.attest_report({ reportId: String(result.reportId) });
 ```
 
 ## Configuration
 
 ```typescript
 xflight.configure({
-  apiUrl: 'https://your-xflight-app.com',  // Your deployed XFlight instance
-  rpcUrl: 'https://rpc.xlayer.tech',       // X Layer RPC
-  openaiApiKey: 'sk-...',                   // Optional: enables AI claim extraction
+  apiUrl: "https://your-xflight-app.com",
+  rpcUrl: "https://rpc.xlayer.tech",
+  privateKey: "0x...", // optional, only needed if you call attest_report
 });
 ```
 
@@ -45,21 +42,7 @@ xflight.configure({
 { "url": "https://www.moltbook.com/posts/abc123" }
 ```
 
-Verifies a Moltbook BuildX post. Extracts claims (wallet, txs, PnL, contracts, links), scores evidence against a 0-100 Flight Score, and generates a shareable proof card.
-
-**Output:**
-```json
-{
-  "reportId": "uuid",
-  "reportHash": "0x...",
-  "score": 72,
-  "verdict": "mostly_verified",
-  "claims": { ... },
-  "breakdown": [ ... ],
-  "attestation": { "success": true, "txHash": "0x..." },
-  "proofUrl": "https://your-app.com/proof/uuid"
-}
-```
+Verifies a Moltbook BuildX post, direct wallet address, transaction hash, or freeform BuildX text. Extracts claims, scores evidence against a 0-100 Flight Score, and generates a shareable proof card.
 
 ### xflight.verify_tx
 
@@ -67,7 +50,7 @@ Verifies a Moltbook BuildX post. Extracts claims (wallet, txs, PnL, contracts, l
 { "txHash": "0xabc123...", "chain": "xlayer" }
 ```
 
-Verifies a transaction hash on X Layer. Checks sender, block number, gas used, and status.
+Verifies a transaction hash on X Layer.
 
 ### xflight.verify_wallet
 
@@ -75,7 +58,7 @@ Verifies a transaction hash on X Layer. Checks sender, block number, gas used, a
 { "address": "0x..." }
 ```
 
-Verifies a wallet address on X Layer. Checks existence, tx count, and contract deployments.
+Verifies a wallet address on X Layer.
 
 ### xflight.generate_proof_card
 
@@ -83,7 +66,7 @@ Verifies a wallet address on X Layer. Checks existence, tx count, and contract d
 { "reportId": "uuid" }
 ```
 
-Generates a shareable proof card from a verification report.
+Fetches a stored or tokenized proof card from the XFlight API.
 
 ### xflight.attest_report
 
@@ -91,7 +74,7 @@ Generates a shareable proof card from a verification report.
 { "reportId": "uuid" }
 ```
 
-Writes a report hash to XFlightRecorder on X Layer. Requires configured private key.
+Writes a report hash to `XFlightRecorder` on X Layer. Requires a deployed contract and configured attester key on the XFlight backend.
 
 ## Flight Score Reference
 
@@ -103,23 +86,18 @@ Writes a report hash to XFlightRecorder on X Layer. Requires configured private 
 | 25-49 | Weak Proof |
 | 0-24 | Unverified |
 
-**Scoring dimensions:**
-- X Layer Proof (30 pts): wallet, txs, contracts on-chain
-- Claim Consistency (20 pts): stated txs, chain, action match
-- OnchainOS/Uniswap Evidence (15 pts): skill usage visible
-- Execution Continuity (15 pts): multiple timestamped actions
-- Proof Completeness (10 pts): GitHub, demo, links present
-- Risk Hygiene (10 pts): no obvious fake PnL or suspicious signals
-
 ## Architecture
 
-The skill calls the XFlight web API. All heavy logic (Moltbook fetching, claim extraction, scoring, on-chain attestation) lives in the backend. The skill is a thin wrapper providing the OpenClaw/OnchainOS command interface.
+The skill calls the XFlight web API. The backend performs Moltbook fetching, claim extraction, scoring, and on-chain attestation. The skill is a thin wrapper that gives agents a stable command interface.
 
 ## Contract
 
-`XFlightRecorder` deployed on X Layer (Chain ID 196):
-- Function: `recordReport(bytes32 reportId, bytes32 reportHash, string projectUrl, uint8 score)`
-- Event: `ReportRecorded(bytes32 reportId, bytes32 reportHash, string projectUrl, uint8 score, address verifier, uint256 timestamp)`
+`XFlightRecorder` on X Layer records three primitives:
+- `commitPlan(bytes32 actionId, bytes32 planHash, string metadataURI)`
+- `recordExecution(bytes32 actionId, bytes32 txHash, bytes32 observedHash)`
+- `attestReport(bytes32 reportId, bytes32 reportHash, uint8 verdict, uint16 flightScore, string reportURI)`
+
+Only authorized attesters can write to the contract.
 
 ## License
 

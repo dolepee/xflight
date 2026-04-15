@@ -1,18 +1,18 @@
 import { z } from "zod";
 
 export const ClaimSchema = z.object({
-  agentName: z.string().optional(),
-  walletAddress: z.string().optional(),
-  transactionCount: z.number().optional(),
-  claimedPnl: z.number().optional(),
-  pnlCurrency: z.string().optional(),
-  onchainosUsed: z.boolean().optional(),
-  uniswapUsed: z.boolean().optional(),
-  deployedContract: z.string().optional(),
-  githubUrl: z.string().optional(),
-  liveDemoUrl: z.string().optional(),
-  otherSkills: z.array(z.string()).optional(),
-  deploymentChain: z.string().optional(),
+  agentName: z.string().nullish(),
+  walletAddress: z.string().nullish(),
+  transactionCount: z.number().nullish(),
+  claimedPnl: z.number().nullish(),
+  pnlCurrency: z.string().nullish(),
+  onchainosUsed: z.boolean().nullish(),
+  uniswapUsed: z.boolean().nullish(),
+  deployedContract: z.string().nullish(),
+  githubUrl: z.string().nullish(),
+  liveDemoUrl: z.string().nullish(),
+  otherSkills: z.array(z.string()).nullish(),
+  deploymentChain: z.string().nullish(),
   rawText: z.string(),
 });
 
@@ -24,8 +24,8 @@ const PNL_REGEX = /\$?([\d,]+(?:\.\d+)?)\s*(?:USD|\$|USDC|USDT|OKB)?/gi;
 const GITHUB_REGEX = /https?:\/\/github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+/gi;
 const CONTRACT_REGEX = /0x[a-fA-F0-9]{40}/g;
 const DEMO_URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
-const ONCHAINOS_KEYWORDS = ["onchianos", "onchainos", "on-chain os", "openclaw"];
-const UNISWAP_KEYWORDS = ["uniswap", "swap", "dex"];
+const ONCHAINOS_KEYWORDS = ["onchainos", "onchain os", "okx wallet api", "okx dex api", "onchainos dev portal"];
+const UNISWAP_KEYWORDS = ["uniswap", "uniswapx", "uniswap v2", "uniswap v3", "uniswap v4"];
 
 export async function extractClaims(
   text: string,
@@ -99,13 +99,14 @@ function extractClaimsFallback(text: string): ExtractedClaims {
   const lowerText = text.toLowerCase();
   const onchainosUsed = ONCHAINOS_KEYWORDS.some((k) => lowerText.includes(k));
   const uniswapUsed = UNISWAP_KEYWORDS.some((k) => lowerText.includes(k));
+  const deploymentChain = /\bx\s*layer\b|\bxlayer\b/i.test(text) ? "X Layer" : null;
 
   const githubUrl = githubMatches[0] || null;
   const liveDemoUrl = demoMatches.find(
-    (u) => u.includes("demo") || u.includes("app.") || u.includes("https://")
+    (u) => u.includes("demo") || u.includes("app.") || u.includes("vercel.app") || u.includes("pages.dev")
   ) || null;
 
-  const agentMatch = text.match(/@?([a-zA-Z0-9_]{2,20})/);
+  const agentMatch = text.match(/(?:@|agent\s+name[:\s]+)([a-zA-Z0-9_\-]{2,32})/i);
   const agentName = agentMatch?.[1] || null;
 
   return ClaimSchema.parse({
@@ -119,7 +120,7 @@ function extractClaimsFallback(text: string): ExtractedClaims {
     deployedContract: contracts[0] || null,
     githubUrl,
     liveDemoUrl,
-    deploymentChain: "X Layer",
+    deploymentChain,
     rawText: text.slice(0, 2000),
   });
 }

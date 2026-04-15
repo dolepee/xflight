@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "test": "node test/run.cjs",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --ignore-pattern test/run.cjs",
     "compile": "npx solcjs --bin --abi -o out contracts/XFlightRecorder.sol",
     "deploy": "npx ts-node scripts/deploy.ts"
   },

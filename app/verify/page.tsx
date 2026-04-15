@@ -77,7 +77,7 @@ function VerifyPageInner() {
       // Auto-verify if URL came from homepage
       handleVerifyDirect(prefill);
     }
-  }, []);
+  }, [searchParams]);
 
   async function handleVerifyDirect(verifyUrl: string) {
     if (!verifyUrl.trim()) return;

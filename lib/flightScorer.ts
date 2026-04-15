@@ -3,6 +3,7 @@ export interface VerificationResult {
   status: "verified" | "unverified" | "partial" | "contradicted";
   detail: string;
   source?: string;
+  evidence?: Record<string, string | number | boolean | null>;
 }
 
 export interface FlightScoreResult {
@@ -15,6 +16,17 @@ export interface FlightScoreResult {
 
 function findVerification(results: VerificationResult[], keyword: string): VerificationResult | undefined {
   return results.find((r) => r.claim.toLowerCase().includes(keyword.toLowerCase()));
+}
+
+function statusPoints(status: VerificationResult["status"] | undefined, full: number, partial: number): number {
+  if (status === "verified") return full;
+  if (status === "partial") return partial;
+  return 0;
+}
+
+function evidenceNumber(result: VerificationResult | undefined, key: string): number {
+  const value = result?.evidence?.[key];
+  return typeof value === "number" ? value : 0;
 }
 
 export function calculateFlightScore(
@@ -32,107 +44,106 @@ export function calculateFlightScore(
   const githubClaim = claims.githubUrl as string | null;
   const contractClaim = claims.deployedContract as string | null;
   const demoClaim = claims.liveDemoUrl as string | null;
+  const chainClaim = claims.deploymentChain as string | null;
+  const uniswapClaim = claims.uniswapUsed as boolean | null;
 
-  // ── 30 pts: X Layer proof (real on chain evidence) ──
-  let xlayerPts = 0;
   const walletV = findVerification(results, "wallet");
-  const txV = findVerification(results, "transaction");
+  const txV = findVerification(results, "transaction count");
   const contractV = findVerification(results, "contract");
+  const onchainosV = findVerification(results, "onchainos");
+  const dexQuoteV = findVerification(results, "dex quote");
+  const portfolioV = findVerification(results, "portfolio");
 
-  if (walletV) {
-    if (walletV.status === "verified") xlayerPts += 10;
-    else if (walletV.status === "partial") xlayerPts += 5;
-  } else if (walletClaim) {
+  // 30 pts: X Layer proof
+  let xlayerPts = 0;
+  xlayerPts += statusPoints(walletV?.status, 10, 5);
+  xlayerPts += statusPoints(txV?.status, 10, 5);
+  xlayerPts += statusPoints(contractV?.status, 10, 5);
+
+  if (!walletV && walletClaim) {
     results.push({ claim: "Wallet on X Layer", status: "unverified", detail: "Wallet address provided but could not be checked on chain" });
   }
-
-  if (txV) {
-    if (txV.status === "verified") xlayerPts += 10;
-    else if (txV.status === "partial") xlayerPts += 5;
-  } else if (txCountClaim && txCountClaim > 0) {
+  if (!txV && txCountClaim && txCountClaim > 0) {
     results.push({ claim: `Transaction count (${txCountClaim}+ txs)`, status: "unverified", detail: "Transaction count claimed but not verified on chain" });
   }
-
-  if (contractV) {
-    if (contractV.status === "verified") xlayerPts += 10;
-    else if (contractV.status === "partial") xlayerPts += 5;
-  } else if (contractClaim) {
+  if (!contractV && contractClaim) {
     results.push({ claim: `Contract deployment (${contractClaim.slice(0, 10)}...)`, status: "unverified", detail: "Contract address provided but not verified on chain" });
   }
 
-  const xlayerMax = 30;
   const evidenceParts = [
     walletV?.status === "verified" && "wallet verified",
-    txV?.status === "verified" && "txs confirmed",
+    txV?.status === "verified" && "tx count confirmed",
     contractV?.status === "verified" && "contract live",
   ].filter(Boolean);
   breakdown.push({
     category: "X Layer Proof",
-    points: Math.min(xlayerPts, xlayerMax),
-    max: xlayerMax,
+    points: Math.min(xlayerPts, 30),
+    max: 30,
     reason: evidenceParts.length > 0
       ? `On chain evidence: ${evidenceParts.join(", ")}`
       : xlayerPts > 0
       ? "Partial on chain evidence found"
       : "No verifiable on chain evidence found",
   });
-  score += Math.min(xlayerPts, xlayerMax);
+  score += Math.min(xlayerPts, 30);
 
-  // ── 20 pts: Claim consistency ──
+  // 20 pts: Claim consistency
   let matchPts = 0;
-  if (walletClaim && /^0x[a-fA-F0-9]{40}$/.test(walletClaim)) matchPts += 8;
-  if (contractClaim && /^0x[a-fA-F0-9]{40}$/.test(contractClaim)) matchPts += 6;
-  if (claims.deploymentChain) matchPts += 6;
+  if (walletClaim && /^0x[a-fA-F0-9]{40}$/.test(walletClaim)) matchPts += 6;
+  if (contractClaim && /^0x[a-fA-F0-9]{40}$/.test(contractClaim)) matchPts += 4;
+  if (githubClaim) matchPts += 4;
+  if (demoClaim) matchPts += 3;
+  if (chainClaim && /x\s*layer|xlayer/i.test(chainClaim)) matchPts += 3;
   breakdown.push({
     category: "Claim Consistency",
     points: Math.min(matchPts, 20),
     max: 20,
-    reason: walletClaim
-      ? `Wallet ${walletClaim.slice(0, 10)}...${walletClaim.slice(-4)} provided, format ${/^0x[a-fA-F0-9]{40}$/.test(walletClaim) ? "valid" : "invalid"}`
-      : "No wallet address provided",
+    reason: [
+      walletClaim && "wallet format present",
+      contractClaim && "contract format present",
+      githubClaim && "GitHub linked",
+      demoClaim && "demo linked",
+      chainClaim && `chain stated as ${chainClaim}`,
+    ].filter(Boolean).join(", ") || "Claims are sparse or poorly specified",
   });
   score += Math.min(matchPts, 20);
 
-  // ── 15 pts: OnchainOS / Uniswap evidence ──
+  // 15 pts: OnchainOS / Uniswap evidence
   let skillPts = 0;
-  const onchainosV = findVerification(results, "onchainos");
-  const dexQuoteV = findVerification(results, "dex quote");
-  const portfolioV = findVerification(results, "portfolio");
-
-  if (onchainosV?.status === "verified") skillPts += 8;
-  else if (onchainosV?.status === "partial") skillPts += 4;
-  else if (onchainosClaim) {
-    skillPts += 3;
-    if (!onchainosV) {
-      results.push({ claim: "OnchainOS usage", status: "unverified", detail: "OnchainOS claimed in post; set OKX_* to enable live skill verification" });
-    }
+  skillPts += statusPoints(onchainosV?.status, 8, 4);
+  if (dexQuoteV?.status === "verified") skillPts += 4;
+  if (portfolioV?.status === "verified") skillPts += 3;
+  if (skillPts === 0 && (onchainosClaim || uniswapClaim)) {
+    results.push({
+      claim: "Claimed skill usage",
+      status: "unverified",
+      detail: "Build post mentions OnchainOS or Uniswap, but no direct evidence was recovered",
+    });
   }
-  if (dexQuoteV?.status === "verified" || portfolioV?.status === "verified") skillPts += 4;
-  if (claims.uniswapUsed) skillPts += 3;
-
   const skillReasons: string[] = [];
-  if (onchainosV?.status === "verified") skillReasons.push("OnchainOS skills live");
-  else if (onchainosClaim) skillReasons.push("OnchainOS claimed");
+  if (onchainosV?.status === "verified") skillReasons.push("OnchainOS usage verified");
+  else if (onchainosClaim) skillReasons.push("OnchainOS only claimed");
   if (dexQuoteV?.status === "verified") skillReasons.push("DEX quote confirmed");
-  if (portfolioV?.status === "verified") skillReasons.push("wallet portfolio read");
-  if (claims.uniswapUsed) skillReasons.push("Uniswap referenced");
+  if (portfolioV?.status === "verified") skillReasons.push("wallet portfolio verified");
+  if (uniswapClaim && !dexQuoteV) skillReasons.push("Uniswap only claimed");
 
   breakdown.push({
     category: "OnchainOS / Uniswap Evidence",
     points: Math.min(skillPts, 15),
     max: 15,
-    reason: skillReasons.length > 0 ? skillReasons.join(", ") : "No OnchainOS/Uniswap usage detected",
+    reason: skillReasons.length > 0 ? skillReasons.join(", ") : "No direct OnchainOS/Uniswap evidence found",
   });
   score += Math.min(skillPts, 15);
 
-  // ── 15 pts: Execution continuity ──
+  // 15 pts: Execution continuity
+  const realTxCount = Math.max(
+    evidenceNumber(txV, "txCount"),
+    evidenceNumber(walletV, "txCount")
+  );
   let continuityPts = 0;
-  const realTxCount = txV?.status === "verified" ? parseInt(txV.detail.match(/(\d+)/)?.[1] || "0") : 0;
-  const effectiveTxCount = realTxCount > 0 ? realTxCount : txCountClaim || 0;
-
-  if (effectiveTxCount >= 10) continuityPts = 15;
-  else if (effectiveTxCount >= 3) continuityPts = 8;
-  else if (effectiveTxCount > 0) continuityPts = 3;
+  if (realTxCount >= 10) continuityPts = 15;
+  else if (realTxCount >= 3) continuityPts = 8;
+  else if (realTxCount > 0) continuityPts = 3;
 
   breakdown.push({
     category: "Execution Continuity",
@@ -146,51 +157,51 @@ export function calculateFlightScore(
   });
   score += continuityPts;
 
-  // ── 10 pts: Proof completeness ──
+  // 10 pts: Proof completeness
   let completenessPts = 0;
   if (githubClaim) completenessPts += 4;
   if (demoClaim) completenessPts += 4;
-  if (pnlClaim) completenessPts += 2;
+  if (walletClaim || contractClaim) completenessPts += 2;
   breakdown.push({
     category: "Proof Completeness",
     points: completenessPts,
     max: 10,
-    reason: [githubClaim && "GitHub", demoClaim && "demo", pnlClaim && "PnL"].filter(Boolean).join(", ") || "No supplementary links provided",
+    reason: [githubClaim && "GitHub", demoClaim && "demo", (walletClaim || contractClaim) && "on chain identifier"].filter(Boolean).join(", ") || "No supplementary links provided",
   });
   score += completenessPts;
 
-  // ── 10 pts: Risk hygiene ──
+  // 10 pts: Risk hygiene
   let hygienePts = 10;
-  let hygieneReason = "No obvious suspicious signals";
+  const hygieneReasons: string[] = [];
   if (pnlClaim && pnlClaim > 1000000) {
     hygienePts -= 4;
-    hygieneReason = `Large PnL ($${pnlClaim.toLocaleString()}) unverifiable without full tx history`;
+    hygieneReasons.push(`large PnL ($${pnlClaim.toLocaleString()}) not independently verified`);
     if (!findVerification(results, "pnl")) {
-      results.push({ claim: `PnL claim ($${pnlClaim.toLocaleString()})`, status: "unverified", detail: "PnL not independently verifiable from on chain data" });
+      results.push({ claim: `PnL claim ($${pnlClaim.toLocaleString()})`, status: "unverified", detail: "PnL is not independently reconstructed from chain data" });
     }
   }
   if (txCountClaim && txCountClaim > 10000) {
     hygienePts -= 3;
-    hygieneReason += `; very high tx count (${txCountClaim}) flagged`;
+    hygieneReasons.push(`very high tx count (${txCountClaim})`);
   }
   if (!walletClaim && !contractClaim) {
     hygienePts -= 3;
-    hygieneReason += "; no wallet or contract provided";
+    hygieneReasons.push("no wallet or contract provided");
   }
-  // Check for contradictions: claimed tx count vs actual
   if (realTxCount > 0 && txCountClaim && txCountClaim > realTxCount * 5) {
     hygienePts -= 3;
-    hygieneReason += `; claimed ${txCountClaim} txs but only ${realTxCount} found on chain`;
-    const existing = findVerification(results, "transaction");
-    if (existing && existing.status !== "contradicted") {
-      results.push({ claim: "Transaction count mismatch", status: "contradicted", detail: `Claimed ${txCountClaim} but wallet nonce is ${realTxCount}` });
+    hygieneReasons.push(`claimed ${txCountClaim} txs but only ${realTxCount} were evidenced`);
+    const existing = findVerification(results, "transaction count mismatch");
+    if (!existing) {
+      results.push({ claim: "Transaction count mismatch", status: "contradicted", detail: `Claimed ${txCountClaim} but only ${realTxCount} were supported by on chain evidence` });
     }
   }
+
   breakdown.push({
     category: "Risk Hygiene",
     points: Math.max(hygienePts, 0),
     max: 10,
-    reason: hygieneReason,
+    reason: hygieneReasons.length > 0 ? hygieneReasons.join("; ") : "No obvious suspicious signals",
   });
   score += Math.max(hygienePts, 0);
 
@@ -204,11 +215,11 @@ export function calculateFlightScore(
   else verdict = "unverified";
 
   const explanations: Record<string, string> = {
-    strongly_verified: "Multiple independent on chain evidence sources confirmed.",
-    mostly_verified: "Core claims have on chain or supplementary evidence.",
-    partially_verified: "Some claims can be verified; others remain unconfirmed.",
-    weak_proof: "Limited evidence; most claims remain unverified.",
-    unverified: "No verifiable on chain evidence found for claims.",
+    strongly_verified: "Multiple independent on chain evidence sources confirmed the core claims.",
+    mostly_verified: "Core claims have strong supporting evidence, with limited unresolved gaps.",
+    partially_verified: "Some claims can be verified, but meaningful parts remain unconfirmed.",
+    weak_proof: "Evidence is thin and relies heavily on unverified claims.",
+    unverified: "No reliable evidence was found for the core claims.",
   };
 
   return { score, verdict, breakdown, results, explanation: explanations[verdict] };
